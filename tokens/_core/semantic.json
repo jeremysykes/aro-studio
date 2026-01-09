@@ -1,0 +1,29 @@
+{
+	"surface": {
+		"default": "palette.neutral.50",
+		"elevated": "palette.neutral.0",
+		"overlay": "rgba(0, 0, 0, 0.5)"
+	},
+	"text": {
+		"primary": "palette.neutral.900",
+		"secondary": "palette.neutral.700",
+		"disabled": "palette.neutral.400",
+		"inverse": "palette.neutral.50"
+	},
+	"border": {
+		"default": "palette.neutral.300",
+		"focus": "palette.primary.500",
+		"error": "palette.error.500"
+	},
+	"action": {
+		"primary": "palette.primary.500",
+		"secondary": "palette.secondary.500",
+		"disabled": "palette.neutral.300"
+	},
+	"feedback": {
+		"error": "palette.error.500",
+		"warning": "palette.warning.500",
+		"info": "palette.info.500",
+		"success": "palette.success.500"
+	}
+}
