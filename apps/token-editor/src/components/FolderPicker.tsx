@@ -1,6 +1,7 @@
 import { Button } from '@aro-studio/ui';
 import { useAppStore } from '../store';
 import { FolderOpen } from 'lucide-react';
+import type { BU } from '@aro-studio/core';
 
 export function FolderPicker() {
   const {
@@ -8,6 +9,7 @@ export function FolderPicker() {
     setTokenRoot,
     setBusinessUnits,
     setCoreEntries,
+    setSelectedBU,
     reset,
   } = useAppStore();
 
@@ -54,8 +56,14 @@ export function FolderPicker() {
 
       setSelectedFolder(selectedFolder);
       setTokenRoot(tokensDir);
-      setBusinessUnits((busResult.data as any[]) || []);
-      setCoreEntries((coreResult.data as any[]) || []);
+      const businessUnitsList = (busResult.data as BU[]) || [];
+      setBusinessUnits(businessUnitsList);
+      setCoreEntries((coreResult.data as unknown[]) || []);
+      
+      // Auto-select first business unit if available
+      if (businessUnitsList.length > 0) {
+        setSelectedBU(businessUnitsList[0].name);
+      }
     } catch (error) {
       console.error('Error picking folder:', error);
       alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);

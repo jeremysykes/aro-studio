@@ -58,9 +58,11 @@ function App() {
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">Aro Studio</h1>
-          <span className="text-sm text-muted-foreground">Token Editor</span>
+          <h1 className="text-lg font-semibold text-foreground">Aro Studio - Token Editor</h1>
         </div>
+        <p className="text-muted-foreground">
+          Select a folder containing a tokens/ directory to get started
+        </p>
         <FolderPicker />
       </div>
 
@@ -69,21 +71,18 @@ function App() {
         {/* Sidebar */}
         {tokenRoot && (
           <div className="w-64 border-r border-border overflow-y-auto">
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground">Select a business unit or core file to view</p>
+              </div>
+            </div>
             <Sidebar />
           </div>
         )}
 
         {/* Editor/Viewer area */}
         <div className="flex-1 flex overflow-hidden">
-          {!tokenRoot ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-muted-foreground">
-                  Select a folder containing a tokens/ directory to get started
-                </p>
-              </div>
-            </div>
-          ) : selectedBU ? (
+          {selectedBU ? (
             <div className="flex-1 flex overflow-hidden min-h-0">
               <div className="flex-1 flex flex-col min-h-0">
                 <TokenEditor />
@@ -96,13 +95,7 @@ function App() {
             <div className="flex-1 flex flex-col">
               <CoreViewer />
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-muted-foreground">Select a business unit or core file to view</p>
-              </div>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -120,4 +113,3 @@ function App() {
 }
 
 export default App;
-

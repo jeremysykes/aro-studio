@@ -1,8 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
-import { Button } from '@aro-studio/ui';
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@aro-studio/ui';
 import { useAppStore } from '../store';
 import { Save, AlertCircle } from 'lucide-react';
+import { TokenTable } from './TokenTable';
+import { parseTokenDocument } from '@aro-studio/core';
+import type { TokenDocument } from '@aro-studio/core';
 
 export function TokenEditor() {
   const {
@@ -22,6 +25,7 @@ export function TokenEditor() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(600); // Default fallback
+  const [activeTab, setActiveTab] = useState<'table' | 'json'>('table'); // Default to table view
 
   // Load token content when BU is selected
   useEffect(() => {
@@ -66,6 +70,38 @@ export function TokenEditor() {
 
     loadTokenContent();
   }, [selectedBU, businessUnits, setTokenContent, setIsDirty, setVersion]);
+
+  // Parse token document from content for table view
+  const tokenDoc = useMemo<TokenDocument | null>(() => {
+    if (!tokenContent) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(tokenContent);
+      return parseTokenDocument(parsed);
+    } catch {
+      return null;
+    }
+  }, [tokenContent]);
+
+  // Handle token changes from table
+  const handleTokenChange = useCallback(
+    (doc: TokenDocument) => {
+      const content = JSON.stringify(doc, null, 2);
+      setEditorContent(content);
+      setTokenContent(content);
+      setIsDirty(true);
+      setSaveError(null);
+    },
+    [setTokenContent, setIsDirty]
+  );
+
+  // Sync editor content when tokenContent changes from external source
+  useEffect(() => {
+    if (tokenContent !== editorContent && activeTab === 'json') {
+      setEditorContent(tokenContent);
+    }
+  }, [tokenContent, activeTab]);
 
   const handleEditorChange = useCallback(
     (value: string | undefined) => {
@@ -132,8 +168,12 @@ export function TokenEditor() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave]);
 
-  // Calculate editor height from container using ResizeObserver
+  // Calculate editor height from container using ResizeObserver (only when JSON tab is active)
   useEffect(() => {
+    if (activeTab !== 'json') {
+      return;
+    }
+
     const container = editorContainerRef.current;
     if (!container) return;
 
@@ -145,7 +185,7 @@ export function TokenEditor() {
 
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [activeTab]);
 
   const handleBumpVersion = async () => {
     if (!selectedBU || !version || !window.electronAPI) {
@@ -223,25 +263,52 @@ export function TokenEditor() {
         </div>
       </div>
 
-      {/* Editor */}
-      <div ref={editorContainerRef} className="flex-1 relative min-h-0">
-        <Editor
-          height={editorHeight}
-          defaultLanguage="json"
-          value={editorContent}
-          onChange={handleEditorChange}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            formatOnPaste: true,
-            formatOnType: true,
-          }}
-          theme="vs-dark"
-        />
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'table' | 'json')} className="flex flex-col flex-1 overflow-hidden">
+        <div className="px-4 border-b border-border">
+          <TabsList>
+            <TabsTrigger value="table">Table</TabsTrigger>
+            <TabsTrigger value="json">JSON</TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Table View */}
+        <TabsContent value="table" className="flex-1 mt-0 min-h-0 overflow-hidden">
+          {tokenDoc ? (
+            <div className="flex-1 overflow-auto min-h-0">
+              <TokenTable tokenDoc={tokenDoc} onTokenChange={handleTokenChange} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>No tokens loaded</p>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* JSON View */}
+        <TabsContent value="json" className="flex-1 overflow-hidden mt-0">
+          <div ref={editorContainerRef} className="h-full relative min-h-0">
+            <Editor
+              height={editorHeight}
+              defaultLanguage="json"
+              value={editorContent}
+              onChange={handleEditorChange}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                formatOnPaste: true,
+                formatOnType: true,
+              }}
+              theme="vs-dark"
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Save error */}
       {saveError && (
