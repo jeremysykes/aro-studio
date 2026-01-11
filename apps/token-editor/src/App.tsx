@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { TokenEditor } from './components/TokenEditor';
 import { ValidationPanel } from './components/ValidationPanel';
 import { CoreViewer } from './components/CoreViewer';
+import { ThemeToggle } from './components/ThemeToggle';
 import { useAppStore } from './store';
 import { parseTokenDocument, validateTokenDocument } from '@aro-studio/core';
 
@@ -63,7 +64,10 @@ function App() {
         <p className="text-muted-foreground">
           Select a folder containing a tokens/ directory to get started
         </p>
-        <FolderPicker />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <FolderPicker />
+        </div>
       </div>
 
       {/* Main content */}

@@ -99,7 +99,7 @@ export function TokenEditor() {
   // Sync editor content when tokenContent changes from external source
   useEffect(() => {
     if (tokenContent !== editorContent && activeTab === 'json') {
-      setEditorContent(tokenContent);
+      setEditorContent(tokenContent || '');
     }
   }, [tokenContent, activeTab]);
 

@@ -1,7 +1,7 @@
 import { Button } from '@aro-studio/ui';
 import { useAppStore } from '../store';
 import { FolderOpen } from 'lucide-react';
-import type { BU } from '@aro-studio/core';
+import type { BU, CoreEntry } from '@aro-studio/core';
 
 export function FolderPicker() {
   const {
@@ -58,7 +58,7 @@ export function FolderPicker() {
       setTokenRoot(tokensDir);
       const businessUnitsList = (busResult.data as BU[]) || [];
       setBusinessUnits(businessUnitsList);
-      setCoreEntries((coreResult.data as unknown[]) || []);
+      setCoreEntries((coreResult.data as CoreEntry[]) || []);
       
       // Auto-select first business unit if available
       if (businessUnitsList.length > 0) {
