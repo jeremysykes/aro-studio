@@ -1,0 +1,29 @@
+{
+  "name": "aro-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aro Studio is a professional toolkit for creating and managing multi-brand design systems.",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter token-editor run dev",
+    "lint": "pnpm --filter \"*\" run lint",
+    "typecheck": "pnpm exec tsc -b --noEmit",
+    "build": "pnpm --filter \"*\" run build",
+    "i": "pnpm install"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@types/node": "^20.10.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^7.15.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+

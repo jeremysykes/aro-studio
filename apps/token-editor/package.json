@@ -1,0 +1,36 @@
+{
+  "name": "token-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./electron-entry.cjs",
+  "scripts": {
+    "dev": "pnpm exec tsc -p tsconfig.preload.json && mv dist-electron/preload/index.js dist-electron/preload/index.cjs && concurrently -k \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
+    "electron": "electron .",
+    "build": "tsc && vite build && tsc -p tsconfig.electron.json",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aro-studio/core": "workspace:*",
+    "@aro-studio/ui": "workspace:*",
+    "@monaco-editor/react": "^4.6.0",
+    "electron": "^28.3.3",
+    "lucide-react": "^0.344.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.11",
+    "wait-on": "^7.2.0"
+  }
+}
