@@ -71,9 +71,8 @@ export function FolderPicker() {
   };
 
   return (
-    <Button onClick={handlePickFolder} variant="outline" size="sm">
-      <FolderOpen className="w-4 h-4 mr-2" />
-      Open Tokens Folder
+    <Button onClick={handlePickFolder} variant="ghost" size="icon" title="Open Tokens Folder">
+      <FolderOpen className="w-4 h-4" />
     </Button>
   );
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
-import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@aro-studio/ui';
+import { Tabs, TabsList, TabsTrigger, TabsContent, Button } from '@aro-studio/ui';
 import { useAppStore } from '../store';
-import { Save, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { TokenTable } from './TokenTable';
 import { parseTokenDocument } from '@aro-studio/core';
 import type { TokenDocument } from '@aro-studio/core';
@@ -14,15 +14,12 @@ export function TokenEditor() {
     tokenContent,
     setTokenContent,
     setIsDirty,
-    isDirty,
     validationIssues,
     version,
     setVersion,
   } = useAppStore();
 
   const [editorContent, setEditorContent] = useState(tokenContent || '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(600); // Default fallback
   const [activeTab, setActiveTab] = useState<'table' | 'json'>('table'); // Default to table view
@@ -91,7 +88,6 @@ export function TokenEditor() {
       setEditorContent(content);
       setTokenContent(content);
       setIsDirty(true);
-      setSaveError(null);
     },
     [setTokenContent, setIsDirty]
   );
@@ -109,64 +105,9 @@ export function TokenEditor() {
       setEditorContent(content);
       setTokenContent(content);
       setIsDirty(true);
-      setSaveError(null);
     },
     [setTokenContent, setIsDirty]
   );
-
-  const handleSave = useCallback(async () => {
-    if (!selectedBU || !window.electronAPI) {
-      return;
-    }
-
-    const bu = businessUnits.find((b) => b.name === selectedBU);
-    if (!bu) {
-      return;
-    }
-
-    // Validate JSON
-    let parsedData: unknown;
-    try {
-      parsedData = JSON.parse(editorContent);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Invalid JSON');
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveError(null);
-
-    try {
-      const tokensPath = `${bu.path}/tokens.json`;
-      const result = await window.electronAPI.writeJson(tokensPath, parsedData);
-
-      if (result.error) {
-        setSaveError(result.error);
-        setIsSaving(false);
-        return;
-      }
-
-      setIsDirty(false);
-      setTokenContent(editorContent);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Unknown error occurred');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [selectedBU, businessUnits, editorContent, setIsDirty, setTokenContent]);
-
-  // Keyboard shortcut for save
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave]);
 
   // Calculate editor height from container using ResizeObserver (only when JSON tab is active)
   useEffect(() => {
@@ -249,18 +190,12 @@ export function TokenEditor() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {hasErrors && (
-            <div className="flex items-center gap-1 text-destructive text-sm">
-              <AlertCircle className="w-4 h-4" />
-              <span>Validation errors</span>
-            </div>
-          )}
-          <Button onClick={handleSave} disabled={!isDirty || isSaving || hasErrors}>
-            <Save className="w-4 h-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
+        {hasErrors && (
+          <div className="flex items-center gap-1 text-destructive text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>Validation errors</span>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -309,13 +244,6 @@ export function TokenEditor() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Save error */}
-      {saveError && (
-        <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm border-t border-border">
-          Error saving: {saveError}
-        </div>
-      )}
     </div>
   );
 }

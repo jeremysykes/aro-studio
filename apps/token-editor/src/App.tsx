@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { FolderPicker } from './components/FolderPicker';
 import { Sidebar } from './components/Sidebar';
 import { TokenEditor } from './components/TokenEditor';
@@ -7,6 +7,8 @@ import { CoreViewer } from './components/CoreViewer';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useAppStore } from './store';
 import { parseTokenDocument, validateTokenDocument } from '@aro-studio/core';
+import { Button } from '@aro-studio/ui';
+import { Save } from 'lucide-react';
 
 function App() {
   const {
@@ -16,7 +18,49 @@ function App() {
     selectedCoreFile,
     tokenContent,
     setValidationIssues,
+    isDirty,
+    setIsDirty,
+    businessUnits,
+    validationIssues,
+    setTokenContent,
   } = useAppStore();
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    if (!selectedBU || !window.electronAPI || !tokenContent) {
+      return;
+    }
+
+    const bu = businessUnits.find((b) => b.name === selectedBU);
+    if (!bu) {
+      return;
+    }
+
+    // Validate JSON
+    let parsedData: unknown;
+    try {
+      parsedData = JSON.parse(tokenContent);
+    } catch {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const tokensPath = `${bu.path}/tokens.json`;
+      const result = await window.electronAPI.writeJson(tokensPath, parsedData);
+
+      if (!result.error) {
+        setIsDirty(false);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedBU, businessUnits, tokenContent, setIsDirty, setTokenContent]);
+
+  const hasErrors = validationIssues.some((issue) => issue.severity === 'error');
+  const canSave = isDirty && !isSaving && !hasErrors && selectedBU;
 
   // Validate token content when it changes
   useEffect(() => {
@@ -46,13 +90,15 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        // Save will be handled by TokenEditor component
+        if (canSave) {
+          handleSave();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [canSave, handleSave]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -65,8 +111,17 @@ function App() {
           Select a folder containing a tokens/ directory to get started
         </p>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <FolderPicker />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSave}
+            disabled={!canSave}
+            title={canSave ? 'Save (Cmd+S)' : 'No changes to save'}
+          >
+            <Save className="w-4 h-4" />
+          </Button>
+          <ThemeToggle />
         </div>
       </div>
 

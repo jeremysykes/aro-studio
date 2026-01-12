@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, ColumnDef, Row } from '@tanstack/react-table';
-import { ColorPicker, ColorArea, ColorSlider, ColorField, parseColor } from 'react-aria-components';
-import type { Color } from '@react-stately/color';
+import { ColorPicker } from '@aro-studio/ui';
 import { TokenRow, flattenTokens, unflattenTokens } from '../utils/tokenFlatten';
 import { TokenDocument } from '@aro-studio/core';
 
@@ -22,7 +21,6 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(value));
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [pickerColor, setPickerColor] = useState<Color | null>(null);
   const swatchRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -30,18 +28,6 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
   const isColor = tokenType === 'color' && columnId === 'value' && typeof value === 'string';
   const hexValue = isColor ? String(value).trim() : '';
   const isValidHex = isColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hexValue);
-
-  // Parse color for color picker
-  const colorValue = useMemo(() => {
-    if (isValidHex) {
-      try {
-        return parseColor(hexValue);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }, [hexValue, isValidHex]);
 
   const handleSave = useCallback(() => {
     // Convert value based on column type
@@ -70,30 +56,20 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
   const handleSwatchClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (isValidHex && colorValue) {
-        setPickerColor(colorValue);
+      if (isValidHex) {
         setIsColorPickerOpen(true);
       }
     },
-    [isValidHex, colorValue]
+    [isValidHex]
   );
 
-  // Update local state on color change (don't commit yet)
-  const handleColorChange = useCallback((color: Color | null) => {
-    if (color) {
-      setPickerColor(color);
-    }
-  }, []);
-
-  // Commit change when picker closes
-  const handlePickerClose = useCallback(() => {
-    if (pickerColor) {
-      const hex = `#${pickerColor.toString('hex')}`;
-      setEditValue(hex);
-      onUpdate(row.index, columnId, hex);
-    }
-    setIsColorPickerOpen(false);
-  }, [pickerColor, row.index, columnId, onUpdate]);
+  const handleColorChange = useCallback(
+    (newHex: string) => {
+      setEditValue(newHex);
+      onUpdate(row.index, columnId, newHex);
+    },
+    [row.index, columnId, onUpdate]
+  );
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -106,13 +82,13 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
         !pickerRef.current.contains(e.target as Node) &&
         !swatchRef.current.contains(e.target as Node)
       ) {
-        handlePickerClose();
+        setIsColorPickerOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isColorPickerOpen, handlePickerClose]);
+  }, [isColorPickerOpen]);
 
   if (columnId === 'path') {
     // Path is read-only
@@ -156,39 +132,13 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
         )}
         <span>{String(value)}</span>
       </div>
-      {isColorPickerOpen && isValidHex && pickerColor && (
+      {isColorPickerOpen && isValidHex && (
         <div
           ref={pickerRef}
-          className="absolute z-50 mt-1 p-3 bg-background border border-border rounded shadow-lg"
+          className="absolute z-50 mt-1"
           style={{ left: 0, top: '100%' }}
         >
-          <ColorPicker value={pickerColor} onChange={handleColorChange}>
-            <ColorArea
-              colorSpace="hsb"
-              xChannel="saturation"
-              yChannel="brightness"
-              style={{ width: '200px', height: '200px' }}
-            />
-            <ColorSlider
-              colorSpace="hsb"
-              channel="hue"
-              style={{ width: '200px', marginTop: '8px' }}
-            />
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-foreground w-12">Hex:</label>
-                <ColorField value={pickerColor} onChange={handleColorChange} className="flex-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-foreground w-12">RGB:</label>
-                <ColorField value={pickerColor} onChange={handleColorChange} className="flex-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-foreground w-12">HSL:</label>
-                <ColorField value={pickerColor} onChange={handleColorChange} className="flex-1" />
-              </div>
-            </div>
-          </ColorPicker>
+          <ColorPicker value={hexValue} onChange={handleColorChange} />
         </div>
       )}
     </div>
@@ -280,7 +230,7 @@ export function TokenTable({ tokenDoc, onTokenChange }: TokenTableProps) {
   });
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-auto">
       <table className="w-full border-collapse">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (

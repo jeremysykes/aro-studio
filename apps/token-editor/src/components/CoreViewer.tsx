@@ -1,13 +1,18 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@aro-studio/ui';
 import { useAppStore } from '../store';
 import { FileText } from 'lucide-react';
+import { TokenTable } from './TokenTable';
+import { parseTokenDocument } from '@aro-studio/core';
+import type { TokenDocument } from '@aro-studio/core';
 
 export function CoreViewer() {
   const { selectedCore, selectedCoreFile, coreEntries } = useAppStore();
   const [content, setContent] = useState<string>('');
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(600);
+  const [activeTab, setActiveTab] = useState<'table' | 'json'>('table');
 
   useEffect(() => {
     const loadContent = async () => {
@@ -48,8 +53,25 @@ export function CoreViewer() {
     loadContent();
   }, [selectedCore, selectedCoreFile, coreEntries]);
 
+  // Parse token document from content for table view
+  const tokenDoc = useMemo<TokenDocument | null>(() => {
+    if (!content) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(content);
+      return parseTokenDocument(parsed);
+    } catch {
+      return null;
+    }
+  }, [content]);
+
   // Calculate editor height from container using ResizeObserver
   useEffect(() => {
+    if (activeTab !== 'json') {
+      return;
+    }
+
     const container = editorContainerRef.current;
     if (!container) return;
 
@@ -61,7 +83,7 @@ export function CoreViewer() {
 
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [activeTab]);
 
   if (!selectedCore || !selectedCoreFile) {
     return (
@@ -87,24 +109,50 @@ export function CoreViewer() {
         <div className="text-xs text-muted-foreground">Read-only</div>
       </div>
 
-      {/* Editor */}
-      <div ref={editorContainerRef} className="flex-1 relative min-h-0">
-        <Editor
-          height={editorHeight}
-          defaultLanguage="json"
-          value={content}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            readOnly: true,
-          }}
-          theme="vs-dark"
-        />
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'table' | 'json')} className="flex flex-col flex-1 overflow-hidden">
+        <div className="px-4 border-b border-border">
+          <TabsList>
+            <TabsTrigger value="table">Table</TabsTrigger>
+            <TabsTrigger value="json">JSON</TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Table View */}
+        <TabsContent value="table" className="flex-1 mt-0 min-h-0 overflow-hidden">
+          {tokenDoc ? (
+            <div className="flex-1 overflow-auto min-h-0">
+              <TokenTable tokenDoc={tokenDoc} onTokenChange={() => {}} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Unable to parse as token document</p>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* JSON View */}
+        <TabsContent value="json" className="flex-1 overflow-hidden mt-0">
+          <div ref={editorContainerRef} className="h-full relative min-h-0">
+            <Editor
+              height={editorHeight}
+              defaultLanguage="json"
+              value={content}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                readOnly: true,
+              }}
+              theme="vs-dark"
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-

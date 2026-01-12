@@ -48,3 +48,64 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React Aria Color Picker Styles */
+.react-aria-ColorArea {
+  width: 192px;
+  height: 192px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.react-aria-ColorArea .react-aria-ColorThumb {
+  position: absolute;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px black, inset 0 0 0 1px black;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+}
+
+.react-aria-ColorThumb[data-focus-visible] {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.react-aria-ColorSlider {
+  display: grid;
+  grid-template-areas: "track";
+  grid-template-columns: 1fr;
+  width: 192px;
+}
+
+.react-aria-ColorSlider .react-aria-SliderTrack {
+  grid-area: track;
+  height: 16px;
+  width: 100%;
+  border-radius: 4px;
+  position: relative;
+}
+
+.react-aria-ColorSlider .react-aria-SliderTrack .react-aria-ColorThumb {
+  position: absolute;
+  top: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px black, inset 0 0 0 1px black;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+}
+
+.react-aria-ColorSlider[data-channel="hue"] .react-aria-SliderTrack {
+  background: linear-gradient(to right, rgb(255, 0, 0), rgb(255, 255, 0), rgb(0, 255, 0), rgb(0, 255, 255), rgb(0, 0, 255), rgb(255, 0, 255), rgb(255, 0, 0));
+}
+
+.react-aria-ColorSlider[data-channel="alpha"] .react-aria-SliderTrack {
+  background-image: repeating-conic-gradient(#e6e6e6 0% 25%, white 0% 50%);
+  background-size: 8px 8px;
+}
