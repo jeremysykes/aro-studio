@@ -161,14 +161,15 @@ function App() {
         }
         right={
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleSave}
-              disabled={!canSave}
-              title={canSave ? 'Save (Cmd+S)' : 'No changes to save'}
-            >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleSave}
+            disabled={!canSave}
+            aria-disabled={!canSave}
+            title={canSave ? 'Save (Cmd+S)' : 'No changes to save'}
+          >
               <Save className="w-4 h-4" />
             </Button>
             <div className="h-6 w-px bg-border" aria-hidden />
