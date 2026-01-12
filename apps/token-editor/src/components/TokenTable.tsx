@@ -1,6 +1,5 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, ColumnDef, Row } from '@tanstack/react-table';
-import { ColorPicker } from '@aro-studio/ui';
 import { TokenRow, flattenTokens, unflattenTokens } from '../utils/tokenFlatten';
 import { TokenDocument } from '@aro-studio/core';
 
@@ -14,20 +13,11 @@ interface EditableCellProps {
   row: Row<TokenRow>;
   columnId: string;
   onUpdate: (rowIndex: number, columnId: string, value: string | number | boolean) => void;
-  tokenType?: string;
 }
 
-function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCellProps) {
+function EditableCell({ value, row, columnId, onUpdate }: EditableCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(value));
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const swatchRef = useRef<HTMLDivElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  // Check if value is a color (hex format)
-  const isColor = tokenType === 'color' && columnId === 'value' && typeof value === 'string';
-  const hexValue = isColor ? String(value).trim() : '';
-  const isValidHex = isColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hexValue);
 
   const handleSave = useCallback(() => {
     // Convert value based on column type
@@ -53,49 +43,12 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
     setIsEditing(false);
   }, [value]);
 
-  const handleSwatchClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (isValidHex) {
-        setIsColorPickerOpen(true);
-      }
-    },
-    [isValidHex]
-  );
-
-  const handleColorChange = useCallback(
-    (newHex: string) => {
-      setEditValue(newHex);
-      onUpdate(row.index, columnId, newHex);
-    },
-    [row.index, columnId, onUpdate]
-  );
-
-  // Close picker when clicking outside
-  useEffect(() => {
-    if (!isColorPickerOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        pickerRef.current &&
-        swatchRef.current &&
-        !pickerRef.current.contains(e.target as Node) &&
-        !swatchRef.current.contains(e.target as Node)
-      ) {
-        setIsColorPickerOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isColorPickerOpen]);
-
   if (columnId === 'path') {
     // Path is read-only
     return <div className="px-4 py-2 text-sm">{String(value)}</div>;
   }
 
-  if (isEditing && !isColorPickerOpen) {
+  if (isEditing) {
     return (
       <input
         type="text"
@@ -116,31 +69,11 @@ function EditableCell({ value, row, columnId, onUpdate, tokenType }: EditableCel
   }
 
   return (
-    <div className="relative">
-      <div
-        className="px-4 py-2 text-sm cursor-pointer hover:bg-muted/50 min-h-[2.5rem] flex items-center gap-2"
-        onClick={() => !isColorPickerOpen && setIsEditing(true)}
-      >
-        {isValidHex && (
-          <div
-            ref={swatchRef}
-            className="w-4 h-4 rounded border border-border/50 flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-ring transition-all"
-            style={{ backgroundColor: hexValue, width: '16px', height: '16px' }}
-            title={`Click to pick color: ${hexValue}`}
-            onClick={handleSwatchClick}
-          />
-        )}
-        <span>{String(value)}</span>
-      </div>
-      {isColorPickerOpen && isValidHex && (
-        <div
-          ref={pickerRef}
-          className="absolute z-50 mt-1"
-          style={{ left: 0, top: '100%' }}
-        >
-          <ColorPicker value={hexValue} onChange={handleColorChange} />
-        </div>
-      )}
+    <div
+      className="px-4 py-2 text-sm cursor-pointer hover:bg-muted/50 min-h-[2.5rem] flex items-center"
+      onClick={() => setIsEditing(true)}
+    >
+      <span>{String(value)}</span>
     </div>
   );
 }
@@ -191,7 +124,6 @@ export function TokenTable({ tokenDoc, onTokenChange }: TokenTableProps) {
             row={row}
             columnId="value"
             onUpdate={handleCellUpdate}
-            tokenType={row.original.type}
           />
         ),
       },
