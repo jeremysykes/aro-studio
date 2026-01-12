@@ -46,10 +46,10 @@ export function Sidebar() {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-3 space-y-3">
       <Select value={currentValue} onValueChange={handleValueChange}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select..." />
+        <SelectTrigger className="w-full h-9 text-[13px]">
+          <SelectValue placeholder="Select..." className="truncate" />
         </SelectTrigger>
         <SelectContent>
           {businessUnits.length > 0 && (

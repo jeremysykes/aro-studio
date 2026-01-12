@@ -45,7 +45,7 @@ function EditableCell({ value, row, columnId, onUpdate }: EditableCellProps) {
 
   if (columnId === 'path') {
     // Path is read-only
-    return <div className="px-4 py-2 text-sm">{String(value)}</div>;
+    return <div className="px-3 py-1.5 text-[13px]">{String(value)}</div>;
   }
 
   if (isEditing) {
@@ -62,7 +62,7 @@ function EditableCell({ value, row, columnId, onUpdate }: EditableCellProps) {
             handleCancel();
           }
         }}
-        className="px-4 py-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="px-3 py-1.5 text-[13px] border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         autoFocus
       />
     );
@@ -70,7 +70,7 @@ function EditableCell({ value, row, columnId, onUpdate }: EditableCellProps) {
 
   return (
     <div
-      className="px-4 py-2 text-sm cursor-pointer hover:bg-muted/50 min-h-[2.5rem] flex items-center"
+      className="px-3 py-1.5 text-[13px] cursor-pointer hover:bg-muted/50 min-h-[2.25rem] flex items-center rounded-sm"
       onClick={() => setIsEditing(true)}
     >
       <span>{String(value)}</span>
@@ -162,15 +162,15 @@ export function TokenTable({ tokenDoc, onTokenChange }: TokenTableProps) {
   });
 
   return (
-    <div className="w-full overflow-auto">
-      <table className="w-full border-collapse">
+    <div className="w-full overflow-auto bg-background">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-b border-border">
+            <tr key={headerGroup.id} className="border-b border-border/80">
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-4 py-2 text-left text-sm font-semibold text-foreground bg-muted/50"
+                  className="px-3 py-2 text-left text-xs font-medium text-muted-foreground bg-muted/40"
                 >
                   {header.isPlaceholder
                     ? null
@@ -182,7 +182,7 @@ export function TokenTable({ tokenDoc, onTokenChange }: TokenTableProps) {
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="border-b border-border hover:bg-muted/30">
+            <tr key={row.id} className="border-b border-border/80 hover:bg-muted/30">
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="p-0">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

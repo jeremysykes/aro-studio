@@ -5,6 +5,7 @@ import { TokenEditor } from './components/TokenEditor';
 import { ValidationPanel } from './components/ValidationPanel';
 import { CoreViewer } from './components/CoreViewer';
 import { ThemeToggle } from './components/ThemeToggle';
+import { ChromeBar, ChromeStatus } from './components/Chrome';
 import { useAppStore } from './store';
 import { parseTokenDocument, validateTokenDocument } from '@aro-studio/core';
 import { Button } from '@aro-studio/ui';
@@ -134,47 +135,58 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">Aro Studio - Token Editor</h1>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <p className="text-muted-foreground">{helperMessage}</p>
-          {!hasFolder ? (
-            <FolderPicker />
-          ) : (
+      <ChromeBar
+        left={
+          <h1 className="text-base font-semibold text-foreground leading-none truncate">
+            Aro Studio - Token Editor
+          </h1>
+        }
+        center={
+          <>
+            <p className="truncate">{helperMessage}</p>
+            {!hasFolder ? (
+              <FolderPicker />
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleClearCache}
+                title="Clear saved folder"
+              >
+                <XCircle className="w-4 h-4" />
+              </Button>
+            )}
+          </>
+        }
+        right={
+          <>
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleClearCache}
-              title="Clear saved folder"
+              className="h-8 w-8"
+              onClick={handleSave}
+              disabled={!canSave}
+              title={canSave ? 'Save (Cmd+S)' : 'No changes to save'}
             >
-              <XCircle className="w-4 h-4" />
+              <Save className="w-4 h-4" />
             </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSave}
-            disabled={!canSave}
-            title={canSave ? 'Save (Cmd+S)' : 'No changes to save'}
-          >
-            <Save className="w-4 h-4" />
-          </Button>
-          <ThemeToggle />
-        </div>
-      </div>
+            <div className="h-6 w-px bg-border" aria-hidden />
+            <div className="flex items-center gap-1.5">
+              <ThemeToggle />
+            </div>
+          </>
+        }
+      />
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         {tokenRoot && (
-          <div className="w-64 border-r border-border overflow-y-auto">
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-muted-foreground">Select a business unit or core file to view</p>
+          <div className="w-64 border-r border-border overflow-y-auto bg-muted/10">
+            <div className="flex-1 flex items-center justify-center px-3 py-2">
+              <div className="text-center text-xs text-muted-foreground">
+                <p>Select a business unit or core file to view</p>
               </div>
             </div>
             <Sidebar />
@@ -201,14 +213,14 @@ function App() {
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between px-4 py-1 border-t border-border text-xs text-muted-foreground">
-        <div>
-          {useAppStore.getState().isDirty && (
+      <ChromeStatus
+        left={
+          useAppStore.getState().isDirty ? (
             <span className="text-amber-600">● Unsaved changes</span>
-          )}
-        </div>
-        <div>{tokenRoot && <span>Token Root: {tokenRoot}</span>}</div>
-      </div>
+          ) : null
+        }
+        right={tokenRoot ? <span className="truncate">Token Root: {tokenRoot}</span> : null}
+      />
     </div>
   );
 }
