@@ -8,7 +8,8 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { useAppStore } from './store';
 import { parseTokenDocument, validateTokenDocument } from '@aro-studio/core';
 import { Button } from '@aro-studio/ui';
-import { Save } from 'lucide-react';
+import { Save, XCircle } from 'lucide-react';
+import { FOLDER_CACHE_KEY, loadFolderFromPath } from './utils/folderLoader';
 
 function App() {
   const {
@@ -23,6 +24,7 @@ function App() {
     businessUnits,
     validationIssues,
     setTokenContent,
+    reset,
   } = useAppStore();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -100,6 +102,35 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [canSave, handleSave]);
 
+  // Auto-load cached folder on start
+  useEffect(() => {
+    const cachedPath = localStorage.getItem(FOLDER_CACHE_KEY);
+    if (!cachedPath) return;
+
+    let isCancelled = false;
+
+    (async () => {
+      const ok = await loadFolderFromPath(cachedPath, { cache: true, mode: 'auto' });
+      if (!ok && !isCancelled) {
+        localStorage.removeItem(FOLDER_CACHE_KEY);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const handleClearCache = useCallback(() => {
+    localStorage.removeItem(FOLDER_CACHE_KEY);
+    reset();
+  }, [reset]);
+
+  const hasFolder = Boolean(tokenRoot);
+  const helperMessage = hasFolder
+    ? 'Folder loaded'
+    : 'Select a folder containing a tokens/ directory to get started';
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Toolbar */}
@@ -107,11 +138,22 @@ function App() {
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold text-foreground">Aro Studio - Token Editor</h1>
         </div>
-        <p className="text-muted-foreground">
-          Select a folder containing a tokens/ directory to get started
-        </p>
+        <div className="flex items-center gap-2 text-sm">
+          <p className="text-muted-foreground">{helperMessage}</p>
+          {!hasFolder ? (
+            <FolderPicker />
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClearCache}
+              title="Clear saved folder"
+            >
+              <XCircle className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
-          <FolderPicker />
           <Button
             variant="ghost"
             size="icon"
