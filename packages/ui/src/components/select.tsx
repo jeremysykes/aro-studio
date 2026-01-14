@@ -3,34 +3,27 @@ import { Listbox, Transition } from '@headlessui/react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-type SelectContextValue<T> = {
-  value: T | null | undefined;
+type SelectContextValue = {
+  value: string | null | undefined;
 };
 
-const SelectContext = React.createContext<SelectContextValue<unknown> | null>(null);
+const SelectContext = React.createContext<SelectContextValue | null>(null);
 
-type SelectProps<T extends string | number | boolean = string> = {
-  value?: T;
-  defaultValue?: T;
-  onValueChange?: (value: T) => void;
+type SelectProps = {
+  value?: string;
+  defaultValue?: string;
+  onValueChange?: (value: string) => void;
   children: React.ReactNode;
   disabled?: boolean;
   name?: string;
 };
 
-function SelectComponent<T extends string | number | boolean = string>({
-  value,
-  defaultValue,
-  onValueChange,
-  children,
-  disabled,
-  name,
-}: SelectProps<T>) {
+const Select = ({ value, defaultValue, onValueChange, children, disabled, name }: SelectProps) => {
   const isControlled = value !== undefined;
-  const [internalValue, setInternalValue] = React.useState<T | undefined>(defaultValue);
+  const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue);
   const currentValue = isControlled ? value : internalValue;
 
-  const handleChange = (next: T) => {
+  const handleChange = (next: string) => {
     if (!isControlled) {
       setInternalValue(next);
     }
@@ -51,11 +44,7 @@ function SelectComponent<T extends string | number | boolean = string>({
       </Listbox>
     </SelectContext.Provider>
   );
-}
-
-const Select = SelectComponent as <T extends string | number | boolean = string>(
-  props: SelectProps<T> & React.RefAttributes<HTMLDivElement>
-) => React.ReactElement | null;
+};
 
 const SelectGroup: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
   <div className={cn('p-1 space-y-1', className)} role="group" {...props} />
@@ -64,15 +53,10 @@ const SelectGroup: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className
 const SelectValue = React.forwardRef<HTMLSpanElement, { placeholder?: string; className?: string }>(
   ({ placeholder, className, ...props }, ref) => {
     const context = React.useContext(SelectContext);
-    const renderedValue =
-      context?.value ?? (placeholder !== undefined ? placeholder : '');
-    const text =
-      typeof renderedValue === 'string' || typeof renderedValue === 'number'
-        ? renderedValue
-        : String(renderedValue ?? '');
+    const valueText = context?.value ?? (placeholder !== undefined ? placeholder : '');
     return (
       <span ref={ref} className={cn('truncate', className)} {...props}>
-        {text}
+        {valueText ?? ''}
       </span>
     );
   }

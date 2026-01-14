@@ -1,15 +1,6 @@
 import { useMemo } from 'react';
 import { useAppStore } from '../store';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@aro-studio/ui';
+import { Picker, Item, Section, Text, View } from '@adobe/react-spectrum';
 
 export function Sidebar() {
   const {
@@ -46,37 +37,34 @@ export function Sidebar() {
   };
 
   return (
-    <div className="p-3 space-y-3">
-      <Select value={currentValue} onValueChange={handleValueChange}>
-        <SelectTrigger className="w-full h-9 text-[13px]">
-          <SelectValue placeholder="Select..." className="truncate" />
-        </SelectTrigger>
-        <SelectContent>
-          {businessUnits.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>Business units</SelectLabel>
-              {businessUnits.map((bu) => (
-                <SelectItem key={bu.name} value={bu.name}>
-                  {bu.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )}
-          {coreEntries.length > 0 && businessUnits.length > 0 && <SelectSeparator />}
-          {coreEntries.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>Core</SelectLabel>
-              {coreEntries.flatMap((entry) =>
-                entry.files.map((file) => (
-                  <SelectItem key={file} value={`core:${file}`}>
-                    {file}
-                  </SelectItem>
-                ))
-              )}
-            </SelectGroup>
-          )}
-        </SelectContent>
-      </Select>
-    </div>
+    <View padding="size-200">
+      <Picker
+        label="Sources"
+        selectedKey={currentValue}
+        onSelectionChange={(key) => handleValueChange(key as string)}
+        width="100%"
+      >
+        {businessUnits.length > 0 ? (
+          <Section title="Business units">
+            {businessUnits.map((bu) => (
+              <Item key={bu.name} textValue={bu.name}>
+                <Text>{bu.name}</Text>
+              </Item>
+            ))}
+          </Section>
+        ) : null}
+        {coreEntries.length > 0 ? (
+          <Section title="Core">
+            {coreEntries.flatMap((entry) =>
+              entry.files.map((file) => (
+                <Item key={`core:${file}`} textValue={file}>
+                  <Text>{file}</Text>
+                </Item>
+              ))
+            )}
+          </Section>
+        ) : null}
+      </Picker>
+    </View>
   );
 }

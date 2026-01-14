@@ -1,44 +1,66 @@
-import { cn } from '@aro-studio/ui';
+import { Flex, View } from '@adobe/react-spectrum';
 import type { ReactNode } from 'react';
 
 interface ChromeBarProps {
   left?: ReactNode;
   center?: ReactNode;
   right?: ReactNode;
-  className?: string;
 }
 
-export function ChromeBar({ left, center, right, className }: ChromeBarProps) {
+export function ChromeBar({ left, center, right }: ChromeBarProps) {
   return (
-    <div
-      className={cn(
-        'flex items-center justify-between px-3 py-2 border-b border-border bg-background/90 backdrop-blur-sm',
-        className
-      )}
+    <View
+      paddingX="size-200"
+      paddingY="size-150"
+      borderBottomWidth="thin"
+      borderColor="gray-300"
+      backgroundColor="gray-50"
     >
-      <div className="flex items-center gap-2 min-w-0">{left}</div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">{center}</div>
-      <div className="flex items-center gap-2">{right}</div>
-    </div>
+      <Flex alignItems="center" justifyContent="space-between" gap="size-200">
+        <Flex alignItems="center" gap="size-150" flex="1 1 0" UNSAFE_style={{ minWidth: 0 }}>
+          {left}
+        </Flex>
+        <Flex
+          alignItems="center"
+          gap="size-150"
+          flex="1 1 0"
+          justifyContent="center"
+          UNSAFE_style={{ minWidth: 0 }}
+        >
+          {center}
+        </Flex>
+        <Flex
+          alignItems="center"
+          gap="size-150"
+          flex="1 1 0"
+          justifyContent="end"
+          UNSAFE_style={{ minWidth: 0 }}
+        >
+          {right}
+        </Flex>
+      </Flex>
+    </View>
   );
 }
 
 interface ChromeStatusProps {
   left?: ReactNode;
   right?: ReactNode;
-  className?: string;
 }
 
-export function ChromeStatus({ left, right, className }: ChromeStatusProps) {
+export function ChromeStatus({ left, right }: ChromeStatusProps) {
   return (
-    <div
-      className={cn(
-        'flex items-center justify-between px-3 py-1 border-t border-border text-[11px] text-muted-foreground bg-background/90 backdrop-blur-sm',
-        className
-      )}
+    <View
+      paddingX="size-200"
+      paddingY="size-150"
+      borderTopWidth="thin"
+      borderColor="gray-300"
+      backgroundColor="gray-50"
     >
-      <div className="min-w-0">{left}</div>
-      <div className="min-w-0 text-right">{right}</div>
-    </div>
+      <Flex alignItems="center" justifyContent="space-between" gap="size-200" UNSAFE_style={{ fontSize: 11 }}>
+        <View UNSAFE_style={{ minWidth: 0 }}>{left}</View>
+        <View UNSAFE_style={{ minWidth: 0, textAlign: 'right' }}>{right}</View>
+      </Flex>
+    </View>
   );
 }

@@ -8,4 +8,5 @@ export * from './discovery';
 export * from './io';
 export * from './types';
 export * from './validation';
+export * from './loader';
 

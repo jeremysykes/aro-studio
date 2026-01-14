@@ -1,158 +1,232 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useReactTable, getCoreRowModel, flexRender, ColumnDef, Row } from '@tanstack/react-table';
-import { TokenRow, flattenTokens, unflattenTokens } from '../utils/tokenFlatten';
-import { TokenDocument } from '@aro-studio/core';
+import { useMemo, useRef, useState, useCallback, memo } from 'react';
+import { useReactTable, getCoreRowModel, flexRender, ColumnDef } from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import type { FlatTokenRow } from '@aro-studio/core';
+import { TextField, Text, Switch, View, Flex } from '@adobe/react-spectrum';
 
-interface TokenTableProps {
-  tokenDoc: TokenDocument;
-  onTokenChange: (doc: TokenDocument) => void;
-}
+type TokenTableProps = {
+  rows: FlatTokenRow[];
+  coreModeEnabled: boolean;
+  onUpdate: (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => void;
+};
 
-interface EditableCellProps {
-  value: string | number | boolean;
-  row: Row<TokenRow>;
-  columnId: string;
-  onUpdate: (rowIndex: number, columnId: string, value: string | number | boolean) => void;
-}
+const isBooleanish = (type: string, value: unknown) => type === 'boolean' || typeof value === 'boolean';
 
-function EditableCell({ value, row, columnId, onUpdate }: EditableCellProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(String(value));
+// Memoized editable text cell to prevent re-renders and preserve focus
+const EditableCell = memo(function EditableCell({
+  value,
+  onCommit,
+  isDisabled,
+  ariaLabel,
+}: {
+  value: string;
+  onCommit: (val: string) => void;
+  isDisabled: boolean;
+  ariaLabel: string;
+}) {
+  const [localValue, setLocalValue] = useState(value);
 
-  const handleSave = useCallback(() => {
-    // Convert value based on column type
-    let finalValue: string | number | boolean = editValue;
-    if (columnId === 'value') {
-      // Try to parse as number or boolean, otherwise keep as string
-      if (editValue === 'true') {
-        finalValue = true;
-      } else if (editValue === 'false') {
-        finalValue = false;
-      } else if (!isNaN(Number(editValue)) && editValue.trim() !== '') {
-        finalValue = Number(editValue);
-      } else {
-        finalValue = editValue;
-      }
+  const handleBlur = useCallback(() => {
+    if (localValue !== value) {
+      onCommit(localValue);
     }
-    onUpdate(row.index, columnId, finalValue);
-    setIsEditing(false);
-  }, [editValue, columnId, row.index, onUpdate]);
-
-  const handleCancel = useCallback(() => {
-    setEditValue(String(value));
-    setIsEditing(false);
-  }, [value]);
-
-  if (columnId === 'path') {
-    // Path is read-only
-    return <div className="px-3 py-1.5 text-[13px]">{String(value)}</div>;
-  }
-
-  if (isEditing) {
-    return (
-      <input
-        type="text"
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            handleSave();
-          } else if (e.key === 'Escape') {
-            handleCancel();
-          }
-        }}
-        className="px-3 py-1.5 text-[13px] border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        autoFocus
-      />
-    );
-  }
+  }, [localValue, value, onCommit]);
 
   return (
-    <div
-      className="px-3 py-1.5 text-[13px] cursor-pointer hover:bg-muted/50 min-h-[2.25rem] flex items-center rounded-sm"
-      onClick={() => setIsEditing(true)}
+    <TextField
+      aria-label={ariaLabel}
+      width="100%"
+      value={localValue}
+      onChange={setLocalValue}
+      onBlur={handleBlur}
+      isDisabled={isDisabled}
+    />
+  );
+});
+
+// Memoized boolean cell
+const BooleanCell = memo(function BooleanCell({
+  value,
+  onChange,
+  isDisabled,
+  ariaLabel,
+}: {
+  value: boolean;
+  onChange: (val: boolean) => void;
+  isDisabled: boolean;
+  ariaLabel: string;
+}) {
+  return (
+    <Switch
+      isSelected={value}
+      isDisabled={isDisabled}
+      onChange={onChange}
+      aria-label={ariaLabel}
     >
-      <span>{String(value)}</span>
-    </div>
+      <Text UNSAFE_style={{ fontSize: 12 }}>{String(value)}</Text>
+    </Switch>
   );
-}
+});
 
-export function TokenTable({ tokenDoc, onTokenChange }: TokenTableProps) {
-  const rows = useMemo(() => flattenTokens(tokenDoc), [tokenDoc]);
+const ROW_HEIGHT = 60; // Estimated row height for virtualization
 
-  const handleCellUpdate = useCallback(
-    (rowIndex: number, columnId: string, newValue: string | number | boolean) => {
-      const updatedRows = [...rows];
-      const row = updatedRows[rowIndex];
+export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
 
-      if (columnId === 'value') {
-        row.value = newValue;
-      } else if (columnId === 'type') {
-        row.type = String(newValue);
-      } else if (columnId === 'description') {
-        row.description = String(newValue);
-      }
-
-      // Reconstruct token document
-      const updatedDoc = unflattenTokens(updatedRows, tokenDoc);
-      onTokenChange(updatedDoc);
+  // Stable callback references to prevent column recreation
+  const handleValueUpdate = useCallback(
+    (rowIndex: number, newValue: string | number | boolean) => {
+      onUpdate(rowIndex, 'value', newValue);
     },
-    [rows, tokenDoc, onTokenChange]
+    [onUpdate]
   );
 
-  const columns = useMemo<ColumnDef<TokenRow>[]>(
+  const handleTypeUpdate = useCallback(
+    (rowIndex: number, newValue: string) => {
+      onUpdate(rowIndex, 'type', newValue);
+    },
+    [onUpdate]
+  );
+
+  const handleDescriptionUpdate = useCallback(
+    (rowIndex: number, newValue: string) => {
+      onUpdate(rowIndex, 'description', newValue);
+    },
+    [onUpdate]
+  );
+
+  const columns = useMemo<ColumnDef<FlatTokenRow>[]>(
     () => [
       {
         accessorKey: 'path',
         header: 'Path',
-        cell: ({ row, getValue }) => (
-          <EditableCell
-            value={getValue() as string | number | boolean}
-            row={row}
-            columnId="path"
-            onUpdate={handleCellUpdate}
-          />
+        size: 300,
+        cell: ({ getValue, row }) => (
+          <Flex alignItems="center" gap="size-100" UNSAFE_style={{ padding: '8px 12px' }}>
+            <View
+              paddingX="size-75"
+              paddingY="size-50"
+              backgroundColor={row.original.layer === 'core' ? 'gray-200' : 'blue-400'}
+              borderRadius="regular"
+            >
+              <Text UNSAFE_style={{ fontSize: 11, fontWeight: 600 }}>
+                {row.original.layer === 'core' ? 'core' : 'bu'}
+              </Text>
+            </View>
+            <Text UNSAFE_style={{ fontSize: 13 }}>{getValue() as string}</Text>
+          </Flex>
         ),
       },
       {
         accessorKey: 'value',
         header: 'Value',
-        cell: ({ row, getValue }) => (
-          <EditableCell
-            value={getValue() as string | number | boolean}
-            row={row}
-            columnId="value"
-            onUpdate={handleCellUpdate}
-          />
-        ),
+        size: 200,
+        cell: ({ row, getValue }) => {
+          const original = row.original;
+          const val = getValue() as string | number | boolean;
+          const isDisabled = original.layer === 'core' && !coreModeEnabled;
+
+          if (isDisabled) {
+            return (
+              <View padding="size-100">
+                <Text UNSAFE_style={{ fontSize: 13 }}>{String(val)}</Text>
+                {original.resolved && original.resolved !== val ? (
+                  <Text UNSAFE_style={{ fontSize: 11, color: 'var(--spectrum-global-color-gray-600)' }}>
+                    Resolved: {String(original.resolved)}
+                  </Text>
+                ) : null}
+              </View>
+            );
+          }
+
+          if (isBooleanish(original.type, val)) {
+            return (
+              <View padding="size-100">
+                <BooleanCell
+                  value={Boolean(val)}
+                  isDisabled={isDisabled}
+                  onChange={(selected) => handleValueUpdate(row.index, selected)}
+                  ariaLabel={`Toggle ${original.path}`}
+                />
+              </View>
+            );
+          }
+
+          return (
+            <View padding="size-100">
+              <EditableCell
+                value={String(val)}
+                isDisabled={isDisabled}
+                onCommit={(newVal) => handleValueUpdate(row.index, newVal)}
+                ariaLabel={`Value for ${original.path}`}
+              />
+              {original.resolved && original.resolved !== val ? (
+                <Text UNSAFE_style={{ fontSize: 11, color: 'var(--spectrum-global-color-gray-600)' }}>
+                  Resolved: {String(original.resolved)}
+                </Text>
+              ) : null}
+            </View>
+          );
+        },
       },
       {
         accessorKey: 'type',
-        header: 'Type',
-        cell: ({ row, getValue }) => (
-          <EditableCell
-            value={getValue() as string | number | boolean}
-            row={row}
-            columnId="type"
-            onUpdate={handleCellUpdate}
-          />
-        ),
+        header: '$type',
+        size: 120,
+        cell: ({ row, getValue }) => {
+          const val = getValue() as string | number | boolean;
+          const original = row.original;
+          const isDisabled = original.layer === 'core' && !coreModeEnabled;
+
+          if (isDisabled) {
+            return (
+              <View padding="size-100">
+                <Text UNSAFE_style={{ fontSize: 13 }}>{String(val)}</Text>
+              </View>
+            );
+          }
+          return (
+            <View padding="size-100">
+              <EditableCell
+                value={String(val)}
+                isDisabled={isDisabled}
+                onCommit={(newVal) => handleTypeUpdate(row.index, newVal)}
+                ariaLabel={`Type for ${original.path}`}
+              />
+            </View>
+          );
+        },
       },
       {
         accessorKey: 'description',
-        header: 'Description',
-        cell: ({ row, getValue }) => (
-          <EditableCell
-            value={getValue() as string | number | boolean}
-            row={row}
-            columnId="description"
-            onUpdate={handleCellUpdate}
-          />
-        ),
+        header: '$description',
+        size: 200,
+        cell: ({ row, getValue }) => {
+          const val = getValue() as string | number | boolean;
+          const original = row.original;
+          const isDisabled = original.layer === 'core' && !coreModeEnabled;
+
+          if (isDisabled) {
+            return (
+              <View padding="size-100">
+                <Text UNSAFE_style={{ fontSize: 13 }}>{String(val || '')}</Text>
+              </View>
+            );
+          }
+          return (
+            <View padding="size-100">
+              <EditableCell
+                value={val ? String(val) : ''}
+                isDisabled={isDisabled}
+                onCommit={(newVal) => handleDescriptionUpdate(row.index, newVal)}
+                ariaLabel={`Description for ${original.path}`}
+              />
+            </View>
+          );
+        },
       },
     ],
-    [handleCellUpdate]
+    [coreModeEnabled, handleValueUpdate, handleTypeUpdate, handleDescriptionUpdate]
   );
 
   const table = useReactTable({
@@ -161,35 +235,78 @@ export function TokenTable({ tokenDoc, onTokenChange }: TokenTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
+  const tableRows = table.getRowModel().rows;
+
+  const virtualizer = useVirtualizer({
+    count: tableRows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
+
+  const virtualRows = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+
   return (
-    <div className="w-full overflow-auto bg-background">
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
+    <div
+      ref={parentRef}
+      style={{
+        overflow: 'auto',
+        backgroundColor: 'var(--spectrum-global-color-gray-50)',
+        height: '100%',
+        maxHeight: '100%',
+        flex: 1,
+      }}
+    >
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-b border-border/80">
+            <tr key={headerGroup.id} style={{ borderBottom: '1px solid var(--spectrum-global-color-gray-300)' }}>
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-3 py-2 text-left text-xs font-medium text-muted-foreground bg-muted/40"
+                  style={{
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    background: 'var(--spectrum-global-color-gray-100)',
+                    fontWeight: 600,
+                    fontSize: 12,
+                    width: header.getSize(),
+                  }}
                 >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
+                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
               ))}
             </tr>
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="border-b border-border/80 hover:bg-muted/30">
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="p-0">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {/* Spacer row for virtualization */}
+          {virtualRows.length > 0 && virtualRows[0].start > 0 && (
+            <tr style={{ height: virtualRows[0].start }} />
+          )}
+          {virtualRows.map((virtualRow) => {
+            const row = tableRows[virtualRow.index];
+            return (
+              <tr
+                key={row.id}
+                style={{
+                  height: ROW_HEIGHT,
+                  borderBottom: '1px solid var(--spectrum-global-color-gray-200)',
+                }}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} style={{ padding: 0, verticalAlign: 'top' }}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+          {/* Bottom spacer for virtualization */}
+          {virtualRows.length > 0 && (
+            <tr style={{ height: totalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0) }} />
+          )}
         </tbody>
       </table>
     </div>

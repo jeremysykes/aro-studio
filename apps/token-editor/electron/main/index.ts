@@ -11,6 +11,8 @@ import {
   discoverCore,
   readJson,
   writeJson,
+  loadTokens,
+  saveTokens,
 } from '@aro-studio/core';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -195,6 +197,31 @@ ipcMain.handle('list-dir', async (_event, path: string) => {
   try {
     const entries = await fsAdapter.listDir(path);
     return { data: entries };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+});
+
+ipcMain.handle('load-tokens', async (_event, tokensDir: string, bu: string) => {
+  try {
+    const result = await loadTokens(tokensDir, bu, fsAdapter);
+    return { data: result };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+});
+
+ipcMain.handle('save-tokens', async (_event, payload: unknown) => {
+  try {
+    if (!payload || typeof payload !== 'object') {
+      return { error: 'Invalid payload' };
+    }
+    const result = await saveTokens(payload as any, fsAdapter);
+    return { data: result };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Unknown error occurred',

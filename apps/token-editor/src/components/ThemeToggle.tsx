@@ -1,39 +1,24 @@
-import { useEffect, useState } from 'react';
+import { ToggleButton, Text } from '@adobe/react-spectrum';
 import { Moon, Sun } from 'lucide-react';
-import { Button } from '@aro-studio/ui';
 
-type Theme = 'light' | 'dark';
+type ColorScheme = 'light' | 'dark';
 
-function getInitialTheme(): Theme {
-  const stored = localStorage.getItem('theme');
-  const theme: Theme =
-    stored === 'light' || stored === 'dark' ? stored : 'light';
-  // Apply immediately to prevent flash
-  document.documentElement.classList.toggle('dark', theme === 'dark');
-  return theme;
+interface ThemeToggleProps {
+  colorScheme: ColorScheme;
+  onChange: (scheme: ColorScheme) => void;
 }
 
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+export function ThemeToggle({ colorScheme, onChange }: ThemeToggleProps) {
+  const isDark = colorScheme === 'dark';
 
   return (
-    <Button
-      variant='ghost'
-      size='icon'
-      onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
-      aria-label='Toggle theme'
-      title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+    <ToggleButton
+      aria-label="Toggle theme"
+      isSelected={isDark}
+      onChange={(selected) => onChange(selected ? 'dark' : 'light')}
     >
-      {theme === 'light' ? (
-        <Sun className='h-4 w-4' />
-      ) : (
-        <Moon className='h-4 w-4' />
-      )}
-    </Button>
+      {isDark ? <Moon size={14} /> : <Sun size={14} />}
+      <Text>{isDark ? 'Dark' : 'Light'}</Text>
+    </ToggleButton>
   );
 }

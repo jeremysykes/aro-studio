@@ -1,6 +1,6 @@
 import { useAppStore } from '../store';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
-import { cn } from '@aro-studio/ui';
+import { View, Heading, Flex, Text } from '@adobe/react-spectrum';
 
 export function ValidationPanel() {
   const { validationIssues } = useAppStore();
@@ -10,65 +10,55 @@ export function ValidationPanel() {
 
   if (validationIssues.length === 0) {
     return (
-      <div className="p-4">
-        <h3 className="font-semibold text-foreground mb-4">Validation</h3>
-        <div className="text-sm text-muted-foreground">No validation issues</div>
-      </div>
+      <View padding="size-300">
+        <Heading level={4}>Validation</Heading>
+        <Text>No validation issues</Text>
+      </View>
     );
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <h3 className="font-semibold text-foreground">Validation</h3>
+    <View padding="size-300" UNSAFE_style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <Heading level={4}>Validation</Heading>
 
       {errors.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-4 h-4 text-destructive" />
-            <span className="font-medium text-destructive">Errors ({errors.length})</span>
-          </div>
-          <div className="space-y-2">
-            {errors.map((issue, index) => (
-              <div
-                key={index}
-                className={cn(
-                  'p-2 rounded text-sm border border-destructive/20 bg-destructive/10'
-                )}
-              >
-                <div className="font-mono text-xs text-muted-foreground mb-1">
-                  {issue.path || '<root>'}
-                </div>
-                <div className="text-foreground">{issue.message}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <View UNSAFE_style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Flex alignItems="center" gap="size-100">
+            <AlertCircle size={16} color="var(--spectrum-semantic-negative-color-default)" />
+            <Text UNSAFE_style={{ color: 'var(--spectrum-semantic-negative-color-default)', fontWeight: 600 }}>
+              Errors ({errors.length})
+            </Text>
+          </Flex>
+          {errors.map((issue, index) => (
+            <View key={index} padding="size-200" borderRadius="regular" borderWidth="thin" borderColor="negative">
+              <Text UNSAFE_style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--spectrum-global-color-gray-700)' }}>
+                {issue.path || '<root>'}
+              </Text>
+              <Text>{issue.message}</Text>
+            </View>
+          ))}
+        </View>
       )}
 
       {warnings.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span className="font-medium text-amber-600">Warnings ({warnings.length})</span>
-          </div>
-          <div className="space-y-2">
-            {warnings.map((issue, index) => (
-              <div
-                key={index}
-                className={cn(
-                  'p-2 rounded text-sm border border-amber-600/20 bg-amber-600/10'
-                )}
-              >
-                <div className="font-mono text-xs text-muted-foreground mb-1">
-                  {issue.path || '<root>'}
-                </div>
-                <div className="text-foreground">{issue.message}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <View UNSAFE_style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Flex alignItems="center" gap="size-100">
+            <AlertTriangle size={16} color="var(--spectrum-semantic-caution-color-default)" />
+            <Text UNSAFE_style={{ color: 'var(--spectrum-semantic-caution-color-default)', fontWeight: 600 }}>
+              Warnings ({warnings.length})
+            </Text>
+          </Flex>
+          {warnings.map((issue, index) => (
+            <View key={index} padding="size-200" borderRadius="regular" borderWidth="thin" borderColor="yellow-600">
+              <Text UNSAFE_style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--spectrum-global-color-gray-700)' }}>
+                {issue.path || '<root>'}
+              </Text>
+              <Text>{issue.message}</Text>
+            </View>
+          ))}
+        </View>
       )}
-    </div>
+    </View>
   );
 }
 

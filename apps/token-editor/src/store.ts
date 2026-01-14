@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BU, CoreEntry, ValidationIssue } from '@aro-studio/core';
+import { BU, CoreEntry, ValidationIssue, TokenDocument, SourceMapEntry, FlatTokenRow } from '@aro-studio/core';
 
 interface AppState {
   selectedFolder: string | null;
@@ -13,6 +13,18 @@ interface AppState {
   isDirty: boolean;
   validationIssues: ValidationIssue[];
   version: string | null;
+  coreDocsByFile: Record<string, TokenDocument>;
+  buDoc: TokenDocument | null;
+  buPath: string | null;
+  mergedDoc: TokenDocument | null;
+  flatTokens: FlatTokenRow[];
+  sourceMaps: Record<string, SourceMapEntry>;
+  coreModeEnabled: boolean;
+  coreDirty: boolean;
+  initialCoreDocsByFile: Record<string, TokenDocument>;
+  initialBuDoc: TokenDocument | null;
+  coreRowsByFile: Record<string, FlatTokenRow[]>;
+  buRowsByName: Record<string, FlatTokenRow[]>;
 
   // Actions
   setSelectedFolder: (folder: string | null) => void;
@@ -25,6 +37,25 @@ interface AppState {
   setIsDirty: (dirty: boolean) => void;
   setValidationIssues: (issues: ValidationIssue[]) => void;
   setVersion: (version: string | null) => void;
+  setLoaderData: (data: {
+    coreDocsByFile?: Record<string, TokenDocument>;
+    buDoc?: TokenDocument | null;
+    buPath?: string | null;
+    mergedDoc?: TokenDocument | null;
+    flatTokens?: FlatTokenRow[];
+    sourceMaps?: Record<string, SourceMapEntry>;
+    coreModeEnabled?: boolean;
+    coreDirty?: boolean;
+    initialCoreDocsByFile?: Record<string, TokenDocument>;
+    initialBuDoc?: TokenDocument | null;
+  }) => void;
+  setBuDoc: (doc: TokenDocument | null) => void;
+  setCoreModeEnabled: (enabled: boolean) => void;
+  setCoreDirty: (dirty: boolean) => void;
+  setInitialDocs: (coreDocs: Record<string, TokenDocument>, buDoc: TokenDocument | null) => void;
+  refreshInitialDocs: () => void;
+  setCoreRowsByFile: (rows: Record<string, FlatTokenRow[]>) => void;
+  setBuRowsByName: (rows: Record<string, FlatTokenRow[]>) => void;
   reset: () => void;
 }
 
@@ -40,6 +71,18 @@ export const useAppStore = create<AppState>((set) => ({
   isDirty: false,
   validationIssues: [],
   version: null,
+  coreDocsByFile: {},
+  buDoc: null,
+  buPath: null,
+  mergedDoc: null,
+  flatTokens: [],
+  sourceMaps: {},
+  coreModeEnabled: false,
+  coreDirty: false,
+  initialCoreDocsByFile: {},
+  initialBuDoc: null,
+  coreRowsByFile: {},
+  buRowsByName: {},
 
   setSelectedFolder: (folder) => set({ selectedFolder: folder }),
   setTokenRoot: (root) => set({ tokenRoot: root }),
@@ -64,6 +107,30 @@ export const useAppStore = create<AppState>((set) => ({
   setIsDirty: (dirty) => set({ isDirty: dirty }),
   setValidationIssues: (issues) => set({ validationIssues: issues }),
   setVersion: (version) => set({ version }),
+  setLoaderData: (data) =>
+    set((state) => ({
+      coreDocsByFile: data.coreDocsByFile ?? state.coreDocsByFile,
+      buDoc: data.buDoc ?? state.buDoc,
+      buPath: data.buPath ?? state.buPath,
+      mergedDoc: data.mergedDoc ?? state.mergedDoc,
+      flatTokens: data.flatTokens ?? state.flatTokens,
+      sourceMaps: data.sourceMaps ?? state.sourceMaps,
+      coreModeEnabled: data.coreModeEnabled ?? state.coreModeEnabled,
+      coreDirty: data.coreDirty ?? state.coreDirty,
+      initialCoreDocsByFile: data.initialCoreDocsByFile ?? state.initialCoreDocsByFile,
+      initialBuDoc: data.initialBuDoc ?? state.initialBuDoc,
+    })),
+  setBuDoc: (doc) => set({ buDoc: doc }),
+  setCoreModeEnabled: (enabled) => set({ coreModeEnabled: enabled }),
+  setCoreDirty: (dirty) => set({ coreDirty: dirty }),
+  setInitialDocs: (coreDocs, buDoc) => set({ initialCoreDocsByFile: coreDocs, initialBuDoc: buDoc }),
+  refreshInitialDocs: () =>
+    set((state) => ({
+      initialCoreDocsByFile: state.coreDocsByFile,
+      initialBuDoc: state.buDoc,
+    })),
+  setCoreRowsByFile: (rows) => set({ coreRowsByFile: rows }),
+  setBuRowsByName: (rows) => set({ buRowsByName: rows }),
   reset: () =>
     set({
       selectedFolder: null,
@@ -77,6 +144,18 @@ export const useAppStore = create<AppState>((set) => ({
       isDirty: false,
       validationIssues: [],
       version: null,
+      coreDocsByFile: {},
+      buDoc: null,
+      buPath: null,
+      mergedDoc: null,
+      flatTokens: [],
+      sourceMaps: {},
+      coreModeEnabled: false,
+      coreDirty: false,
+      initialCoreDocsByFile: {},
+      initialBuDoc: null,
+      coreRowsByFile: {},
+      buRowsByName: {},
     }),
 }));
 

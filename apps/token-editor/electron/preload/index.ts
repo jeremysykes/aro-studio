@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { LoadTokensResult, SaveTokensPayload, SaveTokensResult } from '@aro-studio/core';
 
 /**
  * Electron API exposed to renderer process
@@ -12,6 +13,8 @@ export interface ElectronAPI {
   writeJson: (path: string, data: unknown) => Promise<{ success?: boolean; error?: string }>;
   readFile: (path: string) => Promise<{ data?: string; error?: string }>;
   listDir: (path: string) => Promise<{ data?: string[]; error?: string }>;
+  loadTokens: (tokensDir: string, bu: string) => Promise<{ data?: LoadTokensResult; error?: string }>;
+  saveTokens: (payload: SaveTokensPayload) => Promise<{ data?: SaveTokensResult; error?: string }>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -25,6 +28,8 @@ const electronAPI: ElectronAPI = {
   writeJson: (path: string, data: unknown) => ipcRenderer.invoke('write-json', path, data),
   readFile: (path: string) => ipcRenderer.invoke('read-file', path),
   listDir: (path: string) => ipcRenderer.invoke('list-dir', path),
+  loadTokens: (tokensDir: string, bu: string) => ipcRenderer.invoke('load-tokens', tokensDir, bu),
+  saveTokens: (payload: SaveTokensPayload) => ipcRenderer.invoke('save-tokens', payload),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

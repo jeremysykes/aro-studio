@@ -1,4 +1,4 @@
-import { Button } from '@aro-studio/ui';
+import { ActionButton } from '@adobe/react-spectrum';
 import { FolderOpen } from 'lucide-react';
 import { loadFolderFromPath } from '../utils/folderLoader';
 
@@ -18,15 +18,9 @@ export function FolderPicker() {
   };
 
   return (
-    <Button
-      onClick={handlePickFolder}
-      variant="ghost"
-      size="icon"
-      title="Open Tokens Folder"
-      className="h-8 w-8"
-    >
-      <FolderOpen className="w-4 h-4" />
-    </Button>
+    <ActionButton onPress={handlePickFolder} isQuiet aria-label="Open tokens folder">
+      <FolderOpen size={14} />
+    </ActionButton>
   );
 }
 

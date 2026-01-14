@@ -1,22 +1,35 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
-import { Tabs, TabsList, TabsTrigger, TabsContent, Button } from '@aro-studio/ui';
+import { Tabs, TabList, TabPanels, Item, ActionButton, Flex, View, Text } from '@adobe/react-spectrum';
 import { useAppStore } from '../store';
 import { AlertCircle } from 'lucide-react';
 import { TokenTable } from './TokenTable';
-import { parseTokenDocument } from '@aro-studio/core';
-import type { TokenDocument } from '@aro-studio/core';
+import type { FlatTokenRow, SourceMapEntry, TokenDocument, TokenValue } from '@aro-studio/core';
 
 export function TokenEditor() {
   const {
     selectedBU,
-    businessUnits,
     tokenContent,
     setTokenContent,
     setIsDirty,
     validationIssues,
     version,
     setVersion,
+    tokenRoot,
+    setLoaderData,
+    setBuDoc,
+    buDoc,
+    coreDocsByFile,
+    sourceMaps,
+    coreModeEnabled,
+    setCoreModeEnabled,
+    coreDirty,
+    setCoreDirty,
+    setInitialDocs,
+    refreshInitialDocs,
+    buRowsByName,
+    setBuRowsByName,
+    setCoreRowsByFile,
   } = useAppStore();
 
   const [editorContent, setEditorContent] = useState(tokenContent || '');
@@ -24,73 +37,285 @@ export function TokenEditor() {
   const [editorHeight, setEditorHeight] = useState(600); // Default fallback
   const [activeTab, setActiveTab] = useState<'table' | 'json'>('table'); // Default to table view
 
-  // Load token content when BU is selected
-  useEffect(() => {
-    const loadTokenContent = async () => {
-      if (!selectedBU || !window.electronAPI) {
+  const setNestedValue = (obj: Record<string, unknown>, path: string[], value: unknown) => {
+    let current: Record<string, unknown> = obj;
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i];
+      if (!current[key] || typeof current[key] !== 'object' || current[key] === null) {
+        current[key] = {};
+      }
+      current = current[key] as Record<string, unknown>;
+    }
+    current[path[path.length - 1]] = value;
+  };
+
+  // Utilities (renderer-side) to rebuild merged view and flat rows after edits
+  const isObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+
+  const isLeafToken = (value: unknown): value is { $value: unknown; [key: string]: unknown } =>
+    isObject(value) && '$value' in value;
+
+  const isTokenGroup = (value: unknown): value is Record<string, unknown> => isObject(value) && !('$value' in value);
+
+  const mergeTokenDocuments = useCallback((base: TokenDocument, override: TokenDocument): TokenDocument => {
+    const result: TokenDocument = { ...base };
+    for (const [key, value] of Object.entries(override)) {
+      if (key === '$schema') {
+        result[key] = value as TokenValue;
+        continue;
+      }
+      const existing = result[key];
+      if (isTokenGroup(existing) && isTokenGroup(value)) {
+        result[key] = mergeTokenDocuments(existing as TokenDocument, value as TokenDocument);
+      } else {
+        result[key] = value as TokenValue;
+      }
+    }
+    return result;
+  }, []);
+
+  const getValueByPath = (doc: TokenDocument, path: string): TokenValue | undefined => {
+    const parts = path.split('.');
+    let current: unknown = doc;
+    for (const part of parts) {
+      if (!isObject(current)) return undefined;
+      current = current[part];
+    }
+    return current as TokenValue | undefined;
+  };
+
+  const resolveReference = (value: string, doc: TokenDocument, visited: Set<string> = new Set()) => {
+    const match = value.match(/^\{([^}]+)\}$/);
+    if (!match) return value;
+    const refPath = match[1];
+    if (visited.has(refPath)) return value;
+    visited.add(refPath);
+    const target = getValueByPath(doc, refPath);
+    if (!target) return value;
+    if (isLeafToken(target)) {
+      const resolved = target.$value;
+      if (typeof resolved === 'string') return resolveReference(resolved, doc, visited);
+      return resolved as TokenValue;
+    }
+    return value;
+  };
+
+  const flattenDoc = useCallback(
+    (doc: TokenDocument, layer: 'core' | 'bu', maps?: Record<string, SourceMapEntry>, merged?: TokenDocument): FlatTokenRow[] => {
+      const rows: FlatTokenRow[] = [];
+      const walk = (node: TokenDocument, prefix: string[] = []) => {
+        Object.entries(node).forEach(([key, value]) => {
+          if (key === '$schema') return;
+          const pathArr = [...prefix, key];
+          const pathString = pathArr.join('.');
+          if (isLeafToken(value)) {
+            let rawValue = value.$value;
+            let finalValue: string | number | boolean;
+            if (typeof rawValue === 'object' && rawValue !== null) {
+              finalValue = JSON.stringify(rawValue);
+            } else {
+              finalValue = rawValue as string | number | boolean;
+            }
+            let resolved: string | number | boolean | undefined;
+            if (merged && typeof rawValue === 'string') {
+              const r = resolveReference(rawValue, merged);
+              if (typeof r === 'string' || typeof r === 'number' || typeof r === 'boolean') {
+                resolved = r;
+              }
+            }
+            rows.push({
+              path: pathString,
+              layer: maps?.[pathString]?.layer ?? layer,
+              type: value.$type || '',
+              value: finalValue,
+              description: value.$description as string | undefined,
+              resolved,
+            });
+          } else if (isTokenGroup(value)) {
+            walk(value as TokenDocument, pathArr);
+          } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            rows.push({
+              path: pathString,
+              layer,
+              type: '',
+              value,
+              description: undefined,
+            });
+          }
+        });
+      };
+      walk(doc);
+      return rows;
+    },
+    []
+  );
+
+  const buRows = useMemo(() => {
+    return buRowsByName[selectedBU || ''] ?? [];
+  }, [buRowsByName, selectedBU]);
+
+  const handleRowUpdate = useCallback(
+    (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => {
+      const row = buRows[rowIndex];
+      if (!row) return;
+
+      // Create updated row without full recomputation
+      const updatedRow: FlatTokenRow = {
+        ...row,
+        [columnId]: newValue,
+      };
+
+      // Update BU doc or core doc based on layer
+      if (row.layer === 'bu') {
+        // Update only the specific row in buRowsByName
+        const currentBuRows = buRowsByName[selectedBU || ''] ?? [];
+        const newBuRows = [...currentBuRows];
+        newBuRows[rowIndex] = updatedRow;
+        setBuRowsByName({ ...buRowsByName, [selectedBU || '']: newBuRows });
+
+        // Update buDoc
+        const nextBuDoc = buDoc ? JSON.parse(JSON.stringify(buDoc)) : {};
+        const parts = row.path.split('.');
+        const token: Record<string, unknown> = {
+          $value: columnId === 'value' ? newValue : row.value,
+        };
+        if (columnId === 'type') {
+          token.$type = String(newValue);
+        } else if (row.type) {
+          token.$type = row.type;
+        }
+        if (columnId === 'description') {
+          token.$description = String(newValue);
+        } else if (row.description) {
+          token.$description = row.description;
+        }
+        setNestedValue(nextBuDoc as Record<string, unknown>, parts, token);
+        setBuDoc(nextBuDoc as TokenDocument);
+        setTokenContent(JSON.stringify(nextBuDoc, null, 2));
+        setIsDirty(true);
         return;
       }
 
-      const bu = businessUnits.find((b) => b.name === selectedBU);
-      if (!bu) {
+      // Core edits require Core Mode
+      if (!coreModeEnabled) {
+        return;
+      }
+
+      const entry = sourceMaps[row.path];
+      if (!entry || entry.layer !== 'core') return;
+      const filePath = entry.file;
+      const coreDoc = coreDocsByFile[filePath];
+      if (!coreDoc) return;
+
+      // Update coreDocsByFile
+      const updatedDoc = JSON.parse(JSON.stringify(coreDoc)) as Record<string, unknown>;
+      const parts = row.path.split('.');
+      const token: Record<string, unknown> = {
+        $value: columnId === 'value' ? newValue : row.value,
+      };
+      if (columnId === 'type') {
+        token.$type = String(newValue);
+      } else if (row.type) {
+        token.$type = row.type;
+      }
+      if (columnId === 'description') {
+        token.$description = String(newValue);
+      } else if (row.description) {
+        token.$description = row.description;
+      }
+      setNestedValue(updatedDoc, parts, token);
+
+      const updatedCoreDocs = { ...coreDocsByFile, [filePath]: updatedDoc as TokenDocument };
+      setLoaderData({ coreDocsByFile: updatedCoreDocs });
+      setCoreDirty(true);
+      setIsDirty(true);
+    },
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, sourceMaps, coreDocsByFile, setBuDoc, setCoreDirty, setIsDirty, setTokenContent, setBuRowsByName, setLoaderData]
+  );
+
+  // Load token content when BU is selected
+  useEffect(() => {
+    const loadTokenContent = async () => {
+      if (!selectedBU || !window.electronAPI || !tokenRoot) {
         return;
       }
 
       try {
-        const tokensPath = `${bu.path}/tokens.json`;
-        const result = await window.electronAPI.readJson(tokensPath);
+        const result = await window.electronAPI.loadTokens(tokenRoot, selectedBU);
 
-        if (result.error) {
-          console.error('Error reading tokens:', result.error);
+        if (result.error || !result.data) {
+          console.error('Error loading tokens:', result.error);
+          setLoaderData({
+            coreDocsByFile: {},
+            buDoc: null,
+            mergedDoc: null,
+            flatTokens: [],
+            sourceMaps: {},
+            buPath: null,
+          });
           setEditorContent('{}');
           setTokenContent('{}');
+          setIsDirty(false);
+          setVersion(null);
           return;
         }
 
-        const content = JSON.stringify(result.data, null, 2);
+        const { buDoc: nextBuDoc, merged, flat, sourceMaps, coreDocsByFile: nextCoreDocsByFile, buPath: nextBuPath } =
+          result.data;
+
+        const buRowsMap: Record<string, FlatTokenRow[]> = { [selectedBU]: flattenDoc(nextBuDoc as TokenDocument, 'bu') };
+        const coreRowsMap: Record<string, FlatTokenRow[]> = {};
+        Object.entries(nextCoreDocsByFile || {}).forEach(([file, doc]) => {
+          coreRowsMap[file] = flattenDoc(doc as TokenDocument, 'core');
+        });
+
+        setLoaderData({
+          coreDocsByFile: nextCoreDocsByFile,
+          buDoc: nextBuDoc,
+          mergedDoc: merged,
+          flatTokens: flat,
+          sourceMaps,
+          buPath: nextBuPath,
+        });
+        setBuRowsByName(buRowsMap);
+        setCoreRowsByFile(coreRowsMap);
+        setInitialDocs(
+          JSON.parse(JSON.stringify(nextCoreDocsByFile)) as Record<string, TokenDocument>,
+          JSON.parse(JSON.stringify(nextBuDoc)) as TokenDocument
+        );
+        refreshInitialDocs();
+
+        const content = JSON.stringify(nextBuDoc, null, 2);
         setEditorContent(content);
         setTokenContent(content);
         setIsDirty(false);
 
         // Load version
-        const versionPath = `${bu.path}/version.json`;
+        const versionPath = `${tokenRoot}/${selectedBU}/version.json`;
         const versionResult = await window.electronAPI.readJson(versionPath);
         if (versionResult.data && typeof versionResult.data === 'object' && 'version' in versionResult.data) {
           setVersion((versionResult.data as any).version);
+        } else {
+          setVersion(null);
         }
       } catch (error) {
         console.error('Error loading token content:', error);
         setEditorContent('{}');
         setTokenContent('{}');
+        setLoaderData({
+          coreDocsByFile: {},
+          buDoc: null,
+          mergedDoc: null,
+          flatTokens: [],
+          sourceMaps: {},
+          buPath: null,
+        });
       }
     };
 
     loadTokenContent();
-  }, [selectedBU, businessUnits, setTokenContent, setIsDirty, setVersion]);
-
-  // Parse token document from content for table view
-  const tokenDoc = useMemo<TokenDocument | null>(() => {
-    if (!tokenContent) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(tokenContent);
-      return parseTokenDocument(parsed);
-    } catch {
-      return null;
-    }
-  }, [tokenContent]);
-
-  // Handle token changes from table
-  const handleTokenChange = useCallback(
-    (doc: TokenDocument) => {
-      const content = JSON.stringify(doc, null, 2);
-      setEditorContent(content);
-      setTokenContent(content);
-      setIsDirty(true);
-    },
-    [setTokenContent, setIsDirty]
-  );
+  }, [selectedBU, tokenRoot, setTokenContent, setIsDirty, setVersion, setLoaderData]);
 
   // Sync editor content when tokenContent changes from external source
   useEffect(() => {
@@ -129,12 +354,7 @@ export function TokenEditor() {
   }, [activeTab]);
 
   const handleBumpVersion = async () => {
-    if (!selectedBU || !version || !window.electronAPI) {
-      return;
-    }
-
-    const bu = businessUnits.find((b) => b.name === selectedBU);
-    if (!bu) {
+    if (!selectedBU || !version || !window.electronAPI || !tokenRoot) {
       return;
     }
 
@@ -155,7 +375,7 @@ export function TokenEditor() {
     }
 
     const newVersion = `${major}.${minor}.${patch + 1}`;
-    const versionPath = `${bu.path}/version.json`;
+    const versionPath = `${tokenRoot}/${selectedBU}/version.json`;
 
     try {
       const result = await window.electronAPI.writeJson(versionPath, { version: newVersion });
@@ -175,76 +395,118 @@ export function TokenEditor() {
 
   const hasErrors = validationIssues.some((issue) => issue.severity === 'error');
 
+  const handleCoreModeToggle = useCallback(() => {
+    if (!coreModeEnabled) {
+      const ok = window.confirm('Enable Core Mode? Core edits affect all BUs. Proceed?');
+      if (!ok) return;
+      setCoreModeEnabled(true);
+    } else {
+      setCoreModeEnabled(false);
+    }
+  }, [coreModeEnabled, setCoreModeEnabled]);
+
   return (
-    <div className="flex flex-col h-full">
+    <View height="100%" UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-        <div className="flex items-center gap-4">
-          <h2 className="font-semibold text-foreground">{selectedBU}</h2>
-          {version && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Version: {version}</span>
-              <Button size="sm" variant="outline" onClick={handleBumpVersion}>
-                Bump Patch
-              </Button>
-            </div>
-          )}
-        </div>
-        {hasErrors && (
-          <div className="flex items-center gap-1 text-destructive text-sm">
-            <AlertCircle className="w-4 h-4" />
-            <span>Validation errors</span>
-          </div>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'table' | 'json')} className="flex flex-col flex-1 overflow-hidden">
-        <div className="px-4 border-b border-border">
-          <TabsList>
-            <TabsTrigger value="table">Table</TabsTrigger>
-            <TabsTrigger value="json">JSON</TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Table View */}
-        <TabsContent value="table" className="flex-1 mt-0 min-h-0 overflow-hidden">
-          {tokenDoc ? (
-            <div className="flex-1 overflow-auto min-h-0">
-              <TokenTable tokenDoc={tokenDoc} onTokenChange={handleTokenChange} />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>No tokens loaded</p>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* JSON View */}
-        <TabsContent value="json" className="flex-1 overflow-hidden mt-0">
-          <div ref={editorContainerRef} className="h-full relative min-h-0">
-            <Editor
-              height={editorHeight}
-              defaultLanguage="json"
-              value={editorContent}
-              onChange={handleEditorChange}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                formatOnPaste: true,
-                formatOnType: true,
+      <View paddingX="size-300" paddingY="size-200" borderBottomWidth="thin" borderColor="gray-300">
+        <Flex alignItems="center" justifyContent="space-between" gap="size-200">
+          <Flex alignItems="center" gap="size-200">
+            <Text UNSAFE_style={{ fontWeight: 600 }}>{selectedBU}</Text>
+            {version && (
+              <Flex alignItems="center" gap="size-100">
+                <Text UNSAFE_style={{ fontSize: 13, color: 'var(--spectrum-global-color-gray-700)' }}>
+                  Version: {version}
+                </Text>
+                <ActionButton onPress={handleBumpVersion} isQuiet>
+                  Bump patch
+                </ActionButton>
+              </Flex>
+            )}
+          </Flex>
+          <Flex alignItems="center" gap="size-150">
+            {hasErrors && (
+              <Flex alignItems="center" gap="size-100" UNSAFE_style={{ color: 'var(--spectrum-semantic-negative-color-default)' }}>
+                <AlertCircle size={16} />
+                <Text>Validation errors</Text>
+              </Flex>
+            )}
+            <ActionButton
+              onPress={handleCoreModeToggle}
+              isQuiet
+              UNSAFE_style={{
+                color: coreModeEnabled ? 'var(--spectrum-semantic-caution-color-default)' : undefined,
               }}
-              theme="vs-dark"
-            />
-          </div>
-        </TabsContent>
+            >
+              {coreModeEnabled ? 'Core Mode: on' : 'Core Mode: off'}
+            </ActionButton>
+          </Flex>
+        </Flex>
+      </View>
+
+      <Tabs
+        aria-label="Token editor views"
+        selectedKey={activeTab}
+        onSelectionChange={(key) => setActiveTab(key as 'table' | 'json')}
+        height="100%"
+        UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+      >
+        <TabList>
+          <Item key="table" textValue="Table">
+            Table
+          </Item>
+          <Item key="json" textValue="JSON">
+            JSON
+          </Item>
+        </TabList>
+        <TabPanels UNSAFE_style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Item key="table" textValue="Table">
+            <View height="100%" UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              {coreModeEnabled && coreDirty && (
+                <View padding="size-200" borderBottomWidth="thin" borderColor="gray-300" backgroundColor="gray-75">
+                  <Flex direction="column" gap="size-100">
+                    <Text UNSAFE_style={{ fontWeight: 600 }}>Core changes pending</Text>
+                    <Text UNSAFE_style={{ fontSize: 12, color: 'var(--spectrum-semantic-caution-color-default)' }}>
+                      You have unsaved core edits. Save to see full diff preview.
+                    </Text>
+                  </Flex>
+                </View>
+              )}
+              {buRows.length > 0 ? (
+                <View flex="1" minHeight={0} UNSAFE_style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <TokenTable rows={buRows} onUpdate={handleRowUpdate} coreModeEnabled={coreModeEnabled} />
+                </View>
+              ) : (
+                <Flex alignItems="center" justifyContent="center" height="100%">
+                  <Text>No tokens loaded</Text>
+                </Flex>
+              )}
+            </View>
+          </Item>
+          <Item key="json" textValue="JSON">
+            <View height="100%" UNSAFE_style={{ minHeight: 0 }}>
+              <div ref={editorContainerRef} style={{ height: '100%', minHeight: 0, position: 'relative' }}>
+                <Editor
+                  height={editorHeight}
+                  defaultLanguage="json"
+                  value={editorContent}
+                  onChange={handleEditorChange}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    formatOnPaste: true,
+                    formatOnType: true,
+                  }}
+                  theme="vs-dark"
+                />
+              </div>
+            </View>
+          </Item>
+        </TabPanels>
       </Tabs>
-    </div>
+    </View>
   );
 }
 
