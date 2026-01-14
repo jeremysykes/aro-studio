@@ -1,15 +1,18 @@
-# Release and versioning
+# Release & versioning
 
-## Monorepo versioning
+## Semver rules
+- App packages follow SemVer.
+- Token sets follow SemVer **per BU** via `tokens/<bu>/version.json`.
 
-- Use semver.
-- Start at 0.x during MVP.
+## Token version bump guidance (per BU)
+- PATCH: fix typos, metadata changes, non-visible changes
+- MINOR: additive tokens, additive scales, new semantic tokens that don't break existing mappings
+- MAJOR: rename/remove tokens, change meanings, change types, change reference structure in a breaking way
 
-## Releases
+## Core token changes
+Core token edits can affect all BUs.
+When core tokens change:
+- require a diff/preview step
+- recommend bumping every impacted BU version
+- write an ADR if the change is structural (renames, retyping, hierarchy changes)
 
-- Tag releases
-- Produce simple release notes focused on user-visible changes
-
-## Packaging
-
-Do not implement package publishing until explicitly requested.

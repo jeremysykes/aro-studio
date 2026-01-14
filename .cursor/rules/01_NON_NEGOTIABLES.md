@@ -1,24 +1,33 @@
 # Non-negotiables
 
 ## Behavior
+- Follow this ruleset exactly. Do not edit rule files unless explicitly instructed.
+- Do not introduce new frameworks or alternate stacks.
+- Keep scope tight: ship Token Editor MVP before expanding.
 
-- Do not rewrite or reformat large files unless requested.
-- Do not rename folders or move files without approval.
-- Do not introduce new token categories or token schemas beyond what exists.
-- Do not add heavyweight frameworks unless justified and approved.
+## Locked stack
+- Electron + React + TypeScript
+- Adobe React Spectrum for UI (pre-styled, accessible)
+- TanStack Table for the token grid only
+- Zod for runtime validation in core
 
-## Review checkpoints (mandatory)
+## Architecture gates (must remain true)
+- Monorepo: apps/* (shells), packages/core (business logic), packages/ui (shared UI wrappers only when needed).
+- Renderer must not access filesystem directly.
+- Electron main is the only layer allowed to touch the filesystem.
+- Core must stay portable (no Electron/Node-only imports inside packages/core).
 
-Cursor must stop and ask for review after:
+## Token integrity
+- Tokens are canonical, DTCG-aligned, and must remain lossless:
+  - No schema drift
+  - No silent normalization
+  - No dropping metadata
+  - No rewriting references
 
-1. Monorepo tooling and folder structure
-2. Electron app boots to a blank shell
-3. Token discovery and file IO works end-to-end
-4. Token table renders from real token files
-5. Editing and saving works with validation and clear feedback
-
-## Platform agnostic rule
-
-All business logic must live in `packages/core`.
-UI must be in `packages/ui`.
-Apps must be thin shells that wire UI to core.
+## MVP gates
+Token Editor must be able to:
+- Open a chosen folder and discover tokens/
+- List business units (exclude folders starting with "_")
+- Load/edit/save tokens.json
+- Show validation results in human-readable form
+- Respect read-only areas (e.g. tokens/_core) until explicitly enabled
