@@ -316,15 +316,32 @@ export function TokenEditor() {
         const newBuRows = currentBuRows.filter((r) => r.path !== path);
         setBuRowsByName({ ...buRowsByName, [selectedBU || '']: newBuRows });
 
-        // Remove from buDoc
+        // Remove from buDoc and clean up empty parent objects
         const nextBuDoc = buDoc ? JSON.parse(JSON.stringify(buDoc)) : {};
         const parts = row.path.split('.');
+
+        // Delete the token
         let current = nextBuDoc as Record<string, unknown>;
         for (let i = 0; i < parts.length - 1; i++) {
           if (!current[parts[i]]) return;
           current = current[parts[i]] as Record<string, unknown>;
         }
         delete current[parts[parts.length - 1]];
+
+        // Clean up empty parent objects by walking back up the path
+        for (let depth = parts.length - 2; depth >= 0; depth--) {
+          let parent: Record<string, unknown> = nextBuDoc;
+          for (let i = 0; i < depth; i++) {
+            parent = parent[parts[i]] as Record<string, unknown>;
+          }
+          const key = parts[depth];
+          const obj = parent[key];
+          if (obj && typeof obj === 'object' && Object.keys(obj).length === 0) {
+            delete parent[key];
+          } else {
+            break; // Parent has other children, stop cleanup
+          }
+        }
 
         setBuDoc(nextBuDoc as TokenDocument);
         setTokenContent(JSON.stringify(nextBuDoc, null, 2));
@@ -673,7 +690,7 @@ export function TokenEditor() {
           </Item>
           <Item key="json" textValue="JSON">
             <View height="100%" UNSAFE_style={{ minHeight: 0 }}>
-              <div ref={editorContainerRef} style={{ height: '100%', minHeight: 0, position: 'relative' }}>
+              <div ref={editorContainerRef} style={{ height: '100%', minHeight: 0 }}>
                 <Editor
                   height={editorHeight}
                   defaultLanguage="json"
@@ -687,6 +704,9 @@ export function TokenEditor() {
                     wordWrap: 'on',
                     formatOnPaste: true,
                     formatOnType: true,
+                    automaticLayout: true,
+                    fixedOverflowWidgets: true,
+                    overflowWidgetsDomNode: document.body,
                   }}
                   theme="vs-dark"
                 />

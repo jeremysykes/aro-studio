@@ -5,15 +5,35 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
 }
 
 #root {
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
 }
 
+/*
+ * Monaco Editor Find Widget Positioning Fix
+ * 
+ * Issue: The find widget (Cmd+F) experiences flickering when positioned at its
+ * default location (right: 0) due to z-index conflicts with adjacent UI elements
+ * near the scrollbar area.
+ * 
+ * Attempted solutions that did NOT resolve the issue:
+ * - fixedOverflowWidgets: true
+ * - overflowWidgetsDomNode: document.body
+ * - automaticLayout: true
+ * - Removing overflow restrictions from body
+ * 
+ * This offset is a pragmatic workaround after exhausting official Monaco options.
+ * Revisit if Monaco provides native find widget positioning in future releases.
+ */
+.monaco-editor .find-widget {
+  right: 40px !important;
+}

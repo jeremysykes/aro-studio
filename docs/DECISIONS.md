@@ -28,4 +28,11 @@ Format:
   - Validation (MVP): errors for missing `$value` or `$type` on leaf tokens; type sanity per `$type` (color/dimension/number/boolean/string) allowing reference strings; detect missing/self/circular references across mergedView; preserve `$schema` and all metadata.
   - Tailwind/headless removal: Once Spectrum replacements land, Token Editor UI must not rely on headless/shadcn/Tailwind for controls; any temporary layout Tailwind must be tracked and removed before table milestone closes.
 - Why: Locks behavior/UI stack to MVP constraints, protects DTCG fidelity, and keeps save routing deterministic across multi-file core.
-- Rejected: Using Spectrum “Table” as a data grid (insufficient for TanStack features); writing merged docs back to every file; normalizing/removing unknown metadata; reference rewriting.
+- Rejected: Using Spectrum "Table" as a data grid (insufficient for TanStack features); writing merged docs back to every file; normalizing/removing unknown metadata; reference rewriting.
+
+## 2026-01-14 — Monaco Editor find widget positioning workaround
+- Context: The Monaco Editor find widget (Cmd+F) flickered repeatedly when positioned at its default location near the right edge/scrollbar.
+- Decision: Apply CSS override `right: 40px` to `.monaco-editor .find-widget` to shift it away from the conflict zone.
+- Why: After exhausting official Monaco configuration options (`fixedOverflowWidgets`, `overflowWidgetsDomNode`, `automaticLayout`, body overflow removal), the flickering persisted. Root cause appears to be z-index/stacking context conflicts with adjacent UI elements. CSS offset was the only effective resolution.
+- Rejected: Native Monaco positioning (not available); further stacking context restructuring (too invasive for marginal benefit).
+- Notes: Revisit if Monaco adds native find widget positioning options in future releases.
