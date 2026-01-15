@@ -620,7 +620,8 @@ export function TokenEditor() {
         height="100%"
         UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
-        <TabList>
+        <View paddingX="size-300">
+          <TabList>
           <Item key="table" textValue="Table">
             Table
           </Item>
@@ -630,7 +631,8 @@ export function TokenEditor() {
           <Item key="export" textValue="Export">
             Export
           </Item>
-        </TabList>
+          </TabList>
+        </View>
         <TabPanels UNSAFE_style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Item key="table" textValue="Table">
             <View height="100%" UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
