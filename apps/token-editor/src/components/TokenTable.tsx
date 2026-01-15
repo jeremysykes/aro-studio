@@ -605,7 +605,9 @@ export function TokenTable({
                   height: ROW_HEIGHT,
                   borderBottom: '1px solid var(--spectrum-global-color-gray-200)',
                   backgroundColor: isFocused ? 'var(--spectrum-global-color-blue-100)' : undefined,
+                  boxShadow: isFocused ? 'inset 3px 0 0 var(--spectrum-global-color-blue-500)' : undefined,
                   cursor: 'pointer',
+                  scrollMarginTop: 'var(--spectrum-global-dimension-size-500)',
                 }}
               >
                 {row.getVisibleCells().map((cell, index) => {
