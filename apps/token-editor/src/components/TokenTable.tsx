@@ -508,14 +508,16 @@ export function TokenTable({
     >
       {/* Group headers bar */}
       {onToggleGroupCollapse && groupNames.length > 1 && (
-        <div
-          style={{
+        <View
+          paddingX="size-300"
+          paddingY="size-100"
+          backgroundColor="gray-100"
+          borderBottomWidth="thin"
+          borderColor="gray-300"
+          UNSAFE_style={{
             display: 'flex',
             flexWrap: 'wrap',
             gap: 8,
-            padding: '8px 12px',
-            backgroundColor: 'var(--spectrum-global-color-gray-100)',
-            borderBottom: '1px solid var(--spectrum-global-color-gray-300)',
             position: 'sticky',
             top: 0,
             zIndex: 2,
@@ -562,27 +564,34 @@ export function TokenTable({
               </button>
             );
           })}
-        </div>
+        </View>
       )}
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id} style={{ borderBottom: '1px solid var(--spectrum-global-color-gray-300)' }}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  style={{
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    background: 'var(--spectrum-global-color-gray-100)',
-                    fontWeight: 600,
-                    fontSize: 12,
-                    width: header.getSize(),
-                  }}
-                >
-                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
+              {headerGroup.headers.map((header, index) => {
+                const isFirst = index === 0;
+                const isLast = index === headerGroup.headers.length - 1;
+                return (
+                  <th
+                    key={header.id}
+                    style={{
+                      paddingTop: 'var(--spectrum-global-dimension-size-100)',
+                      paddingBottom: 'var(--spectrum-global-dimension-size-100)',
+                      paddingLeft: isFirst ? 'var(--spectrum-global-dimension-size-300)' : 'var(--spectrum-global-dimension-size-150)',
+                      paddingRight: isLast ? 'var(--spectrum-global-dimension-size-300)' : 'var(--spectrum-global-dimension-size-150)',
+                      textAlign: 'left',
+                      background: 'var(--spectrum-global-color-gray-100)',
+                      fontWeight: 600,
+                      fontSize: 12,
+                      width: header.getSize(),
+                    }}
+                  >
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                );
+              })}
             </tr>
           ))}
         </thead>
@@ -606,11 +615,23 @@ export function TokenTable({
                   cursor: 'pointer',
                 }}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} style={{ padding: 0, verticalAlign: 'top' }}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+                {row.getVisibleCells().map((cell, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === row.getVisibleCells().length - 1;
+                  return (
+                    <td
+                      key={cell.id}
+                      style={{
+                        padding: 0,
+                        paddingLeft: isFirst ? 'var(--spectrum-global-dimension-size-150)' : 0,
+                        paddingRight: isLast ? 'var(--spectrum-global-dimension-size-150)' : 0,
+                        verticalAlign: 'top',
+                      }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}

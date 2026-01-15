@@ -92,7 +92,7 @@ export function FilterBar({ showLayerFilter = true, totalCount, filteredCount }:
 
   return (
     <View
-      paddingX="size-200"
+      paddingX="size-300"
       paddingY="size-100"
       backgroundColor="gray-75"
       borderBottomWidth="thin"
