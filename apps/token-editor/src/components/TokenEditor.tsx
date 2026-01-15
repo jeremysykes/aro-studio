@@ -364,22 +364,42 @@ export function TokenEditor() {
       }
 
       if (row.layer === 'bu') {
-        // Generate new path with -copy suffix
+        // Generate new path with proper copy suffix
         const parts = row.path.split('.');
         const lastPart = parts[parts.length - 1];
-        parts[parts.length - 1] = `${lastPart}-copy`;
-        const newPath = parts.join('.');
 
-        // Check if path already exists
+        // Strip existing -copy or -copy-N suffix to get base name
+        const copyMatch = lastPart.match(/^(.+)-copy(?:-(\d+))?$/);
+        const baseName = copyMatch ? copyMatch[1] : lastPart;
+
+        // Build base path for comparison
+        const pathPrefix = parts.slice(0, -1).join('.');
+        const baseFullPath = pathPrefix ? `${pathPrefix}.${baseName}` : baseName;
+
+        // Find highest existing copy number for this base
         const currentBuRows = buRowsByName[selectedBU || ''] ?? [];
-        const existingPaths = new Set(currentBuRows.map((r) => r.path));
-        let uniquePath = newPath;
-        let counter = 1;
-        while (existingPaths.has(uniquePath)) {
-          parts[parts.length - 1] = `${lastPart}-copy-${counter}`;
-          uniquePath = parts.join('.');
-          counter++;
+        let maxNumber = 0;
+
+        for (const r of currentBuRows) {
+          if (r.path === `${baseFullPath}-copy`) {
+            maxNumber = Math.max(maxNumber, 1);
+          } else {
+            const match = r.path.match(
+              new RegExp(
+                `^${baseFullPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-copy-(\\d+)$`
+              )
+            );
+            if (match) {
+              maxNumber = Math.max(maxNumber, parseInt(match[1], 10));
+            }
+          }
         }
+
+        // Generate next copy path
+        const nextNumber = maxNumber + 1;
+        const suffix = nextNumber === 1 ? '-copy' : `-copy-${nextNumber}`;
+        parts[parts.length - 1] = `${baseName}${suffix}`;
+        const uniquePath = parts.join('.');
 
         // Create duplicate row
         const duplicateRow: FlatTokenRow = {

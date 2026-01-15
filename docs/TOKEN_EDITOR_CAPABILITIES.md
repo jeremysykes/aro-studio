@@ -227,7 +227,8 @@ Triggered when changes exist, shows:
 ### 17. Duplicate Token
 
 - **Duplicate button**: Per-row action to clone a token
-- **Auto-naming**: Appends `-copy` to original path
+- **Auto-naming**: Appends `-copy` suffix with incremental numbering (`-copy`, `-copy-2`, `-copy-3`, etc.)
+- **Copy-of-copy support**: Duplicating a copy increments the sequence (e.g., `-copy` → `-copy-2`)
 - **Same values**: Copies value, type, and description
 
 ### 18. Recent Folders
