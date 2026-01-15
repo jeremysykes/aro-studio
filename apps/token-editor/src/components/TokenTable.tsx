@@ -353,6 +353,9 @@ export function TokenTable({
                 isDisabled={isDisabled}
                 onCommit={(newVal) => handleValueUpdate(original.path, newVal)}
                 ariaLabel={`Color for ${original.path}`}
+                availableTokens={rows}
+                resolvedValue={original.resolved ? String(original.resolved) : undefined}
+                currentPath={original.path}
               />
             );
           }
