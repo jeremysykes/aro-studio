@@ -175,6 +175,14 @@ export function TokenTable({
           }
           break;
         case ' ':
+          // Don't capture space when typing in an input field
+          const target = e.target as HTMLElement;
+          const isTypingInInput = target.tagName === 'INPUT' ||
+                                  target.tagName === 'TEXTAREA' ||
+                                  target.isContentEditable;
+          if (isTypingInInput) {
+            break; // Let the space go through to the input
+          }
           // Space to toggle selection
           if (focusedRowIndex !== null && onToggleSelection) {
             e.preventDefault();
