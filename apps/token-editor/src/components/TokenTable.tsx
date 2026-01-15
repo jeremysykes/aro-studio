@@ -493,20 +493,8 @@ export function TokenTable({
   const totalSize = virtualizer.getTotalSize();
 
   return (
-    <div
-      ref={parentRef}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      style={{
-        overflow: 'auto',
-        backgroundColor: 'var(--spectrum-global-color-gray-50)',
-        height: '100%',
-        maxHeight: '100%',
-        flex: 1,
-        outline: 'none',
-      }}
-    >
-      {/* Group headers bar */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Group headers bar - OUTSIDE scroll container, always visible */}
       {onToggleGroupCollapse && groupNames.length > 1 && (
         <View
           paddingX="size-300"
@@ -518,9 +506,6 @@ export function TokenTable({
             display: 'flex',
             flexWrap: 'wrap',
             gap: 8,
-            position: 'sticky',
-            top: 0,
-            zIndex: 2,
           }}
         >
           {groupNames.map((group) => {
@@ -566,8 +551,21 @@ export function TokenTable({
           })}
         </View>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+
+      {/* Scroll container */}
+      <div
+        ref={parentRef}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        style={{
+          overflow: 'auto',
+          backgroundColor: 'var(--spectrum-global-color-gray-50)',
+          flex: 1,
+          outline: 'none',
+        }}
+      >
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id} style={{ borderBottom: '1px solid var(--spectrum-global-color-gray-300)' }}>
               {headerGroup.headers.map((header, index) => {
@@ -577,6 +575,9 @@ export function TokenTable({
                   <th
                     key={header.id}
                     style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1,
                       paddingTop: 'var(--spectrum-global-dimension-size-100)',
                       paddingBottom: 'var(--spectrum-global-dimension-size-100)',
                       paddingLeft: isFirst ? 'var(--spectrum-global-dimension-size-300)' : 'var(--spectrum-global-dimension-size-150)',
@@ -639,8 +640,9 @@ export function TokenTable({
           {virtualRows.length > 0 && (
             <tr style={{ height: totalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0) }} />
           )}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
