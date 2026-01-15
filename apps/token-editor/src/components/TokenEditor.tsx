@@ -10,6 +10,11 @@ import { AddTokenDialog, useAddToken } from './AddTokenDialog';
 import { ExportPreview } from './ExportPreview';
 import type { FlatTokenRow, SourceMapEntry, TokenDocument, TokenValue } from '@aro-studio/core';
 
+// Get the top-level group from a token path
+function getTokenGroup(path: string): string {
+  return path.split('.')[0];
+}
+
 export function TokenEditor() {
   const {
     selectedBU,
@@ -206,6 +211,11 @@ export function TokenEditor() {
 
     return rows;
   }, [buRows, searchQuery, filterType, filterLayer, filterHasReference]);
+
+  // Apply group collapse filtering to get visible rows
+  const visibleRows = !collapsedGroups || collapsedGroups.size === 0
+    ? filteredRows
+    : filteredRows.filter((row) => !collapsedGroups.has(getTokenGroup(row.path)));
 
   // Create index mapping from filtered rows back to original rows for updates
   const filteredToOriginalIndex = useMemo(() => {
@@ -646,12 +656,13 @@ export function TokenEditor() {
                   </Flex>
                 </View>
               )}
-              <FilterBar totalCount={buRows.length} filteredCount={filteredRows.length} />
+              <FilterBar totalCount={buRows.length} filteredCount={visibleRows.length} />
               <BulkActionBar selectedCount={selectedPaths.size} />
-              {filteredRows.length > 0 ? (
+              {visibleRows.length > 0 ? (
                 <View flex="1" minHeight={0} UNSAFE_style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   <TokenTable
-                    rows={filteredRows}
+                    rows={visibleRows}
+                    allFilteredRows={filteredRows}
                     onUpdate={handleRowUpdate}
                     onDelete={handleRowDelete}
                     onDuplicate={handleRowDuplicate}

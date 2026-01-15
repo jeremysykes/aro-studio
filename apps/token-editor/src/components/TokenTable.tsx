@@ -10,6 +10,7 @@ import { DeleteTokenDialog } from './DeleteTokenDialog';
 
 type TokenTableProps = {
   rows: FlatTokenRow[];
+  allFilteredRows?: FlatTokenRow[]; // All filtered rows (for group buttons), before collapse filtering
   coreModeEnabled: boolean;
   onUpdate: (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => void;
   onDelete?: (rowIndex: number) => void;
@@ -102,6 +103,7 @@ const ROW_HEIGHT = 60; // Estimated row height for virtualization
 
 export function TokenTable({
   rows,
+  allFilteredRows,
   onUpdate,
   coreModeEnabled,
   onDelete,
@@ -119,25 +121,15 @@ export function TokenTable({
   const allSelected = selectedPaths && rows.length > 0 && rows.every((row) => selectedPaths.has(row.path));
   const someSelected = selectedPaths && rows.some((row) => selectedPaths.has(row.path)) && !allSelected;
 
-  // Compute grouped rows
-  const groups = useMemo(() => groupRows(rows), [rows]);
-  const groupNames = useMemo(() => Array.from(groups.keys()).sort(), [groups]);
-
-  // Compute visible rows (respecting collapsed state)
-  const visibleRows = useMemo(() => {
-    if (!collapsedGroups || collapsedGroups.size === 0) {
-      return rows;
-    }
-    return rows.filter((row) => {
-      const group = getTokenGroup(row.path);
-      return !collapsedGroups.has(group);
-    });
-  }, [rows, collapsedGroups]);
+  // Compute grouped rows for group buttons UI - uses all filtered rows (before collapse)
+  const rowsForGroups = allFilteredRows ?? rows;
+  const groups = groupRows(rowsForGroups);
+  const groupNames = Array.from(groups.keys()).sort();
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const totalRows = visibleRows.length;
+      const totalRows = rows.length;
       if (totalRows === 0) return;
 
       switch (e.key) {
@@ -186,7 +178,7 @@ export function TokenTable({
           // Space to toggle selection
           if (focusedRowIndex !== null && onToggleSelection) {
             e.preventDefault();
-            const row = visibleRows[focusedRowIndex];
+            const row = rows[focusedRowIndex];
             if (row) {
               onToggleSelection(row.path);
             }
@@ -194,7 +186,7 @@ export function TokenTable({
           break;
       }
     },
-    [visibleRows, focusedRowIndex, onToggleSelection]
+    [rows, focusedRowIndex, onToggleSelection]
   );
 
   // Stable callback references to prevent column recreation
@@ -471,11 +463,11 @@ export function TokenTable({
           ]
         : []),
     ],
-    [coreModeEnabled, handleValueUpdate, handleTypeUpdate, handleDescriptionUpdate, rows, onDelete, onDuplicate, onToggleSelection, onSelectAll, selectedPaths, allSelected, someSelected, visibleRows]
+    [coreModeEnabled, handleValueUpdate, handleTypeUpdate, handleDescriptionUpdate, rows, onDelete, onDuplicate, onToggleSelection, onSelectAll, selectedPaths, allSelected, someSelected]
   );
 
   const table = useReactTable({
-    data: visibleRows,
+    data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
