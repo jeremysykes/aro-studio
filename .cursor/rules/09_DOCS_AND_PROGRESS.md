@@ -7,6 +7,11 @@ The goal is to keep decisions stable so the project doesn't thrash.
 - `docs/ADR/` – Architecture Decision Records (one per decision)
 - `docs/TOKENS/` – token model, naming, layering, DTCG conventions
 
+## Capability documentation
+- `docs/TOKEN_EDITOR_CAPABILITIES.md` – current feature inventory
+- Update this file when adding, changing, or removing features
+- Keep "Limitations" section current (remove items when implemented)
+
 ## Required updates when changing direction
 If you change any of these, write an ADR:
 - token layer model

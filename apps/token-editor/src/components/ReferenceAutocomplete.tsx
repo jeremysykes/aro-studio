@@ -26,6 +26,12 @@ export const ReferenceAutocomplete = memo(function ReferenceAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const localValueRef = useRef(localValue);
+
+  // Keep ref in sync with state - ensures handlers always have fresh value
+  useEffect(() => {
+    localValueRef.current = localValue;
+  }, [localValue]);
 
   // Extract the search query from the current reference being typed
   const referenceQuery = useMemo(() => {
@@ -61,62 +67,58 @@ export const ReferenceAutocomplete = memo(function ReferenceAutocomplete({
   }, []);
 
   const handleBlur = useCallback(() => {
-    // Small delay to allow click on suggestion to register
-    setTimeout(() => {
-      if (localValue !== value) {
-        onCommit(localValue);
-      }
-      setShowSuggestions(false);
-    }, 150);
-  }, [localValue, value, onCommit]);
+    // Only close suggestions - commits happen explicitly via Enter, Tab, or suggestion selection
+    setShowSuggestions(false);
+  }, []);
 
-  const handleSelectSuggestion = useCallback(
-    (token: FlatTokenRow) => {
-      // Replace the partial reference with the complete one
-      const lastOpenBrace = localValue.lastIndexOf('{');
-      if (lastOpenBrace !== -1) {
-        const newValue = localValue.substring(0, lastOpenBrace) + `{${token.path}}`;
-        setLocalValue(newValue);
-        onCommit(newValue);
-      }
-      setShowSuggestions(false);
-    },
-    [localValue, onCommit]
-  );
+  // Use ref to always get fresh localValue, avoiding stale closure issues
+  const handleSelectSuggestion = (token: FlatTokenRow) => {
+    const currentValue = localValueRef.current;
+    const lastOpenBrace = currentValue.lastIndexOf('{');
+    if (lastOpenBrace !== -1) {
+      const newValue = currentValue.substring(0, lastOpenBrace) + `{${token.path}}`;
+      setLocalValue(newValue);
+      onCommit(newValue);
+    }
+    setShowSuggestions(false);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!showSuggestions) return;
-
-      switch (e.key) {
-        case 'ArrowDown':
+  // No useCallback - depends on multiple state values that need to be fresh
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        if (showSuggestions) {
           e.preventDefault();
           setSelectedIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
-          break;
-        case 'ArrowUp':
+        }
+        break;
+      case 'ArrowUp':
+        if (showSuggestions) {
           e.preventDefault();
           setSelectedIndex((prev) => Math.max(prev - 1, 0));
-          break;
-        case 'Enter':
+        }
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (showSuggestions && suggestions[selectedIndex]) {
+          handleSelectSuggestion(suggestions[selectedIndex]);
+        } else if (localValue !== value) {
+          onCommit(localValue);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setLocalValue(value); // Revert to original
+        setShowSuggestions(false);
+        break;
+      case 'Tab':
+        if (showSuggestions && suggestions[selectedIndex]) {
           e.preventDefault();
-          if (suggestions[selectedIndex]) {
-            handleSelectSuggestion(suggestions[selectedIndex]);
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          setShowSuggestions(false);
-          break;
-        case 'Tab':
-          if (suggestions[selectedIndex]) {
-            e.preventDefault();
-            handleSelectSuggestion(suggestions[selectedIndex]);
-          }
-          break;
-      }
-    },
-    [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion]
-  );
+          handleSelectSuggestion(suggestions[selectedIndex]);
+        }
+        break;
+    }
+  };
 
   // Scroll selected suggestion into view
   useEffect(() => {
@@ -143,6 +145,7 @@ export const ReferenceAutocomplete = memo(function ReferenceAutocomplete({
       {showSuggestions && (
         <div
           ref={suggestionsRef}
+          onMouseDown={(e) => e.preventDefault()}
           style={{
             position: 'absolute',
             top: '100%',
@@ -160,10 +163,7 @@ export const ReferenceAutocomplete = memo(function ReferenceAutocomplete({
           {suggestions.map((token, index) => (
             <div
               key={token.path}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelectSuggestion(token);
-              }}
+              onMouseDown={() => handleSelectSuggestion(token)}
               style={{
                 padding: '8px 12px',
                 cursor: 'pointer',

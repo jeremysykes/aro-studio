@@ -48,10 +48,28 @@ function safeParseColor(value: string): Color | null {
 }
 
 /**
- * Format a Color object back to a hex string
+ * Format a Color object back to a hex string for storage
+ * Uses hexa format (8-digit) if alpha is not 100%, otherwise standard hex
  */
 function colorToHex(color: Color): string {
-  const hex = color.toString('hex');
+  const alpha = color.getChannelValue('alpha');
+  if (alpha < 1) {
+    return color.toString('hexa');
+  }
+  return color.toString('hex');
+}
+
+/**
+ * Format a color value for display in the table
+ * Shows "#RRGGBB (XX%)" format when alpha is not 100%
+ */
+function formatColorDisplay(color: Color): string {
+  const alpha = color.getChannelValue('alpha');
+  const hex = color.toString('hex'); // Always 6-digit
+  if (alpha < 1) {
+    const percent = Math.round(alpha * 100);
+    return `${hex} (${percent}%)`;
+  }
   return hex;
 }
 
@@ -105,6 +123,9 @@ export const ColorCell = memo(function ColorCell({ value, onCommit, isDisabled, 
     );
   }
 
+  // Format for display: "#RRGGBB (XX%)" when alpha < 100%
+  const displayValue = formatColorDisplay(parsedColor);
+
   // Disabled state - just show swatch and value
   if (isDisabled) {
     return (
@@ -120,7 +141,7 @@ export const ColorCell = memo(function ColorCell({ value, onCommit, isDisabled, 
               flexShrink: 0,
             }}
           />
-          <Text UNSAFE_style={{ fontSize: 13 }}>{value}</Text>
+          <Text UNSAFE_style={{ fontSize: 13 }}>{displayValue}</Text>
         </Flex>
       </View>
     );
@@ -141,13 +162,13 @@ export const ColorCell = memo(function ColorCell({ value, onCommit, isDisabled, 
                 flexShrink: 0,
               }}
             />
-            <Text UNSAFE_style={{ fontSize: 13 }}>{value}</Text>
+            <Text UNSAFE_style={{ fontSize: 13 }}>{displayValue}</Text>
           </Flex>
         </ActionButton>
         <Dialog>
           <Heading>Edit Color</Heading>
           <Content>
-            <Flex direction="column" gap="size-200">
+            <Flex direction="column" gap="size-200" width="size-2400">
               {localColor && (
                 <>
                   <ColorArea

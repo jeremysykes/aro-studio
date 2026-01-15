@@ -12,9 +12,9 @@ type TokenTableProps = {
   rows: FlatTokenRow[];
   allFilteredRows?: FlatTokenRow[]; // All filtered rows (for group buttons), before collapse filtering
   coreModeEnabled: boolean;
-  onUpdate: (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => void;
-  onDelete?: (rowIndex: number) => void;
-  onDuplicate?: (rowIndex: number) => void;
+  onUpdate: (path: string, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => void;
+  onDelete?: (path: string) => void;
+  onDuplicate?: (path: string) => void;
   selectedPaths?: Set<string>;
   onToggleSelection?: (path: string) => void;
   onSelectAll?: (paths: string[]) => void;
@@ -199,22 +199,22 @@ export function TokenTable({
 
   // Stable callback references to prevent column recreation
   const handleValueUpdate = useCallback(
-    (rowIndex: number, newValue: string | number | boolean) => {
-      onUpdate(rowIndex, 'value', newValue);
+    (path: string, newValue: string | number | boolean) => {
+      onUpdate(path, 'value', newValue);
     },
     [onUpdate]
   );
 
   const handleTypeUpdate = useCallback(
-    (rowIndex: number, newValue: string) => {
-      onUpdate(rowIndex, 'type', newValue);
+    (path: string, newValue: string) => {
+      onUpdate(path, 'type', newValue);
     },
     [onUpdate]
   );
 
   const handleDescriptionUpdate = useCallback(
-    (rowIndex: number, newValue: string) => {
-      onUpdate(rowIndex, 'description', newValue);
+    (path: string, newValue: string) => {
+      onUpdate(path, 'description', newValue);
     },
     [onUpdate]
   );
@@ -338,7 +338,7 @@ export function TokenTable({
                 <BooleanCell
                   value={Boolean(val)}
                   isDisabled={isDisabled}
-                  onChange={(selected) => handleValueUpdate(row.index, selected)}
+                  onChange={(selected) => handleValueUpdate(original.path, selected)}
                   ariaLabel={`Toggle ${original.path}`}
                 />
               </View>
@@ -351,7 +351,7 @@ export function TokenTable({
               <ColorCell
                 value={val}
                 isDisabled={isDisabled}
-                onCommit={(newVal) => handleValueUpdate(row.index, newVal)}
+                onCommit={(newVal) => handleValueUpdate(original.path, newVal)}
                 ariaLabel={`Color for ${original.path}`}
               />
             );
@@ -361,9 +361,10 @@ export function TokenTable({
           return (
             <View padding="size-100">
               <ReferenceAutocomplete
+                key={original.path}
                 value={String(val)}
                 isDisabled={isDisabled}
-                onCommit={(newVal) => handleValueUpdate(row.index, newVal)}
+                onCommit={(newVal) => handleValueUpdate(original.path, newVal)}
                 ariaLabel={`Value for ${original.path}`}
                 availableTokens={rows}
               />
@@ -397,7 +398,7 @@ export function TokenTable({
               <EditableCell
                 value={String(val)}
                 isDisabled={isDisabled}
-                onCommit={(newVal) => handleTypeUpdate(row.index, newVal)}
+                onCommit={(newVal) => handleTypeUpdate(original.path, newVal)}
                 ariaLabel={`Type for ${original.path}`}
               />
             </View>
@@ -425,7 +426,7 @@ export function TokenTable({
               <EditableCell
                 value={val ? String(val) : ''}
                 isDisabled={isDisabled}
-                onCommit={(newVal) => handleDescriptionUpdate(row.index, newVal)}
+                onCommit={(newVal) => handleDescriptionUpdate(original.path, newVal)}
                 ariaLabel={`Description for ${original.path}`}
               />
             </View>
@@ -451,7 +452,7 @@ export function TokenTable({
                           isQuiet
                           aria-label={`Duplicate ${original.path}`}
                           isDisabled={isDisabled}
-                          onPress={() => onDuplicate(row.index)}
+                          onPress={() => onDuplicate(original.path)}
                           UNSAFE_style={{ padding: 4, minWidth: 0 }}
                         >
                           <Copy size={14} />
@@ -460,7 +461,7 @@ export function TokenTable({
                       <DeleteTokenDialog
                         token={original}
                         allTokens={rows}
-                        onDelete={() => onDelete(row.index)}
+                        onDelete={() => onDelete(original.path)}
                         isDisabled={isDisabled}
                       />
                     </Flex>

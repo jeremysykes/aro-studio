@@ -217,24 +217,12 @@ export function TokenEditor() {
     ? filteredRows
     : filteredRows.filter((row) => !collapsedGroups.has(getTokenGroup(row.path)));
 
-  // Create index mapping from filtered rows back to original rows for updates
-  const filteredToOriginalIndex = useMemo(() => {
-    const map = new Map<number, number>();
-    filteredRows.forEach((filteredRow, filteredIndex) => {
-      const originalIndex = buRows.findIndex((r) => r.path === filteredRow.path);
-      if (originalIndex !== -1) {
-        map.set(filteredIndex, originalIndex);
-      }
-    });
-    return map;
-  }, [filteredRows, buRows]);
-
   const handleRowUpdate = useCallback(
-    (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => {
-      // Map filtered index back to original index
-      const originalIndex = filteredToOriginalIndex.get(rowIndex) ?? rowIndex;
+    (path: string, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => {
+      // Find row by path (stable identifier, not affected by filtering/collapsing)
+      const originalIndex = buRows.findIndex((r) => r.path === path);
       const row = buRows[originalIndex];
-      if (!row) return;
+      if (!row || originalIndex === -1) return;
 
       // Create updated row without full recomputation
       const updatedRow: FlatTokenRow = {
@@ -307,15 +295,14 @@ export function TokenEditor() {
       setCoreDirty(true);
       setIsDirty(true);
     },
-    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, sourceMaps, coreDocsByFile, setBuDoc, setCoreDirty, setIsDirty, setTokenContent, setBuRowsByName, setLoaderData, filteredToOriginalIndex]
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, sourceMaps, coreDocsByFile, setBuDoc, setCoreDirty, setIsDirty, setTokenContent, setBuRowsByName, setLoaderData]
   );
 
   // Delete row handler
   const handleRowDelete = useCallback(
-    (rowIndex: number) => {
-      // Map filtered index back to original index
-      const originalIndex = filteredToOriginalIndex.get(rowIndex) ?? rowIndex;
-      const row = buRows[originalIndex];
+    (path: string) => {
+      // Find row by path (stable identifier)
+      const row = buRows.find((r) => r.path === path);
       if (!row) return;
 
       // Only allow deleting BU tokens (not core tokens unless in core mode)
@@ -324,9 +311,9 @@ export function TokenEditor() {
       }
 
       if (row.layer === 'bu') {
-        // Remove from buRowsByName
+        // Remove from buRowsByName by path
         const currentBuRows = buRowsByName[selectedBU || ''] ?? [];
-        const newBuRows = currentBuRows.filter((_, i) => i !== originalIndex);
+        const newBuRows = currentBuRows.filter((r) => r.path !== path);
         setBuRowsByName({ ...buRowsByName, [selectedBU || '']: newBuRows });
 
         // Remove from buDoc
@@ -344,15 +331,14 @@ export function TokenEditor() {
         setIsDirty(true);
       }
     },
-    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, setBuRowsByName, setBuDoc, setTokenContent, setIsDirty, filteredToOriginalIndex]
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, setBuRowsByName, setBuDoc, setTokenContent, setIsDirty]
   );
 
   // Duplicate row handler
   const handleRowDuplicate = useCallback(
-    (rowIndex: number) => {
-      // Map filtered index back to original index
-      const originalIndex = filteredToOriginalIndex.get(rowIndex) ?? rowIndex;
-      const row = buRows[originalIndex];
+    (path: string) => {
+      // Find row by path (stable identifier)
+      const row = buRows.find((r) => r.path === path);
       if (!row) return;
 
       // Only allow duplicating BU tokens (not core tokens unless in core mode)
@@ -407,7 +393,7 @@ export function TokenEditor() {
         setIsDirty(true);
       }
     },
-    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, setBuRowsByName, setBuDoc, setTokenContent, setIsDirty, filteredToOriginalIndex]
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, setBuRowsByName, setBuDoc, setTokenContent, setIsDirty]
   );
 
   // Load token content when BU is selected
