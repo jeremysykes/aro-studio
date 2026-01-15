@@ -18,7 +18,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { ChromeBar, ChromeStatus } from './components/Chrome';
 import { useAppStore } from './store';
 import { parseTokenDocument, validateTokenDocument } from '@aro-studio/core';
-import { Save, XCircle } from 'lucide-react';
+import { Save, XCircle, Undo2, Redo2 } from 'lucide-react';
 import { FOLDER_CACHE_KEY, loadFolderFromPath } from './utils/folderLoader';
 import type { TokenDocument } from '@aro-studio/core';
 
@@ -74,6 +74,39 @@ function App() {
     setColorScheme(scheme);
     localStorage.setItem('token-editor:color-scheme', scheme);
   }, []);
+
+  // Undo/Redo state from temporal store
+  const temporalState = useAppStore.temporal.getState();
+  const [undoCount, setUndoCount] = useState(0);
+  const [redoCount, setRedoCount] = useState(0);
+
+  // Subscribe to temporal store changes
+  useEffect(() => {
+    const unsubscribe = useAppStore.temporal.subscribe((state) => {
+      setUndoCount(state.pastStates.length);
+      setRedoCount(state.futureStates.length);
+    });
+    // Initial sync
+    setUndoCount(temporalState.pastStates.length);
+    setRedoCount(temporalState.futureStates.length);
+    return unsubscribe;
+  }, [temporalState]);
+
+  const handleUndo = useCallback(() => {
+    const { undo, pastStates } = useAppStore.temporal.getState();
+    if (pastStates.length > 0) {
+      undo();
+      setIsDirty(true);
+    }
+  }, [setIsDirty]);
+
+  const handleRedo = useCallback(() => {
+    const { redo, futureStates } = useAppStore.temporal.getState();
+    if (futureStates.length > 0) {
+      redo();
+      setIsDirty(true);
+    }
+  }, [setIsDirty]);
 
   // Diff computation functions (called lazily when dialog opens)
   const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -372,17 +405,28 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Save: Cmd/Ctrl + S
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         if (canSave) {
           handleSave();
         }
       }
+      // Undo: Cmd/Ctrl + Z (without Shift)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
+      if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+        e.preventDefault();
+        handleRedo();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canSave, handleSave]);
+  }, [canSave, handleSave, handleUndo, handleRedo]);
 
   // Auto-load cached folder on start
   useEffect(() => {
@@ -440,6 +484,23 @@ function App() {
           }
           right={
             <Flex alignItems="center" gap="size-150">
+              <ActionButton
+                onPress={handleUndo}
+                isDisabled={undoCount === 0}
+                isQuiet
+                aria-label={undoCount > 0 ? `Undo (${undoCount}) Cmd+Z` : 'Nothing to undo'}
+              >
+                <Undo2 size={14} />
+              </ActionButton>
+              <ActionButton
+                onPress={handleRedo}
+                isDisabled={redoCount === 0}
+                isQuiet
+                aria-label={redoCount > 0 ? `Redo (${redoCount}) Cmd+Shift+Z` : 'Nothing to redo'}
+              >
+                <Redo2 size={14} />
+              </ActionButton>
+              <Divider orientation="vertical" size="S" />
               <ActionButton onPress={handleSave} isDisabled={!canSave} aria-label={canSave ? 'Save (Cmd+S)' : 'No changes to save'}>
                 <Save size={14} />
               </ActionButton>

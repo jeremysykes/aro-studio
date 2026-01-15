@@ -2,13 +2,43 @@ import { useMemo, useRef, useState, useCallback, memo } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, ColumnDef } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FlatTokenRow } from '@aro-studio/core';
-import { TextField, Text, Switch, View, Flex } from '@adobe/react-spectrum';
+import { TextField, Text, Switch, View, Flex, ActionButton } from '@adobe/react-spectrum';
+import { Copy } from 'lucide-react';
+import { ColorCell, shouldUseColorPicker } from './ColorCell';
+import { ReferenceAutocomplete } from './ReferenceAutocomplete';
+import { DeleteTokenDialog } from './DeleteTokenDialog';
 
 type TokenTableProps = {
   rows: FlatTokenRow[];
   coreModeEnabled: boolean;
   onUpdate: (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => void;
+  onDelete?: (rowIndex: number) => void;
+  onDuplicate?: (rowIndex: number) => void;
+  selectedPaths?: Set<string>;
+  onToggleSelection?: (path: string) => void;
+  onSelectAll?: (paths: string[]) => void;
+  // Grouping
+  collapsedGroups?: Set<string>;
+  onToggleGroupCollapse?: (group: string) => void;
 };
+
+// Get the top-level group from a token path
+function getTokenGroup(path: string): string {
+  return path.split('.')[0];
+}
+
+// Group rows by their top-level path segment
+function groupRows(rows: FlatTokenRow[]): Map<string, FlatTokenRow[]> {
+  const groups = new Map<string, FlatTokenRow[]>();
+  for (const row of rows) {
+    const group = getTokenGroup(row.path);
+    if (!groups.has(group)) {
+      groups.set(group, []);
+    }
+    groups.get(group)!.push(row);
+  }
+  return groups;
+}
 
 const isBooleanish = (type: string, value: unknown) => type === 'boolean' || typeof value === 'boolean';
 
@@ -70,8 +100,102 @@ const BooleanCell = memo(function BooleanCell({
 
 const ROW_HEIGHT = 60; // Estimated row height for virtualization
 
-export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps) {
+export function TokenTable({
+  rows,
+  onUpdate,
+  coreModeEnabled,
+  onDelete,
+  onDuplicate,
+  selectedPaths,
+  onToggleSelection,
+  onSelectAll,
+  collapsedGroups,
+  onToggleGroupCollapse,
+}: TokenTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+
+  // Selection helpers
+  const allSelected = selectedPaths && rows.length > 0 && rows.every((row) => selectedPaths.has(row.path));
+  const someSelected = selectedPaths && rows.some((row) => selectedPaths.has(row.path)) && !allSelected;
+
+  // Compute grouped rows
+  const groups = useMemo(() => groupRows(rows), [rows]);
+  const groupNames = useMemo(() => Array.from(groups.keys()).sort(), [groups]);
+
+  // Compute visible rows (respecting collapsed state)
+  const visibleRows = useMemo(() => {
+    if (!collapsedGroups || collapsedGroups.size === 0) {
+      return rows;
+    }
+    return rows.filter((row) => {
+      const group = getTokenGroup(row.path);
+      return !collapsedGroups.has(group);
+    });
+  }, [rows, collapsedGroups]);
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const totalRows = visibleRows.length;
+      if (totalRows === 0) return;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedRowIndex((prev) => {
+            const next = prev === null ? 0 : Math.min(prev + 1, totalRows - 1);
+            // Scroll to the focused row
+            if (parentRef.current) {
+              const rowElement = parentRef.current.querySelector(`[data-row-index="${next}"]`);
+              rowElement?.scrollIntoView({ block: 'nearest' });
+            }
+            return next;
+          });
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedRowIndex((prev) => {
+            const next = prev === null ? totalRows - 1 : Math.max(prev - 1, 0);
+            if (parentRef.current) {
+              const rowElement = parentRef.current.querySelector(`[data-row-index="${next}"]`);
+              rowElement?.scrollIntoView({ block: 'nearest' });
+            }
+            return next;
+          });
+          break;
+        case 'Home':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            setFocusedRowIndex(0);
+            if (parentRef.current) {
+              parentRef.current.scrollTop = 0;
+            }
+          }
+          break;
+        case 'End':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            setFocusedRowIndex(totalRows - 1);
+            if (parentRef.current) {
+              parentRef.current.scrollTop = parentRef.current.scrollHeight;
+            }
+          }
+          break;
+        case ' ':
+          // Space to toggle selection
+          if (focusedRowIndex !== null && onToggleSelection) {
+            e.preventDefault();
+            const row = visibleRows[focusedRowIndex];
+            if (row) {
+              onToggleSelection(row.path);
+            }
+          }
+          break;
+      }
+    },
+    [visibleRows, focusedRowIndex, onToggleSelection]
+  );
 
   // Stable callback references to prevent column recreation
   const handleValueUpdate = useCallback(
@@ -97,6 +221,47 @@ export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps)
 
   const columns = useMemo<ColumnDef<FlatTokenRow>[]>(
     () => [
+      // Selection checkbox column (optional)
+      ...(onToggleSelection
+        ? [
+            {
+              id: 'select',
+              header: () => (
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected || false;
+                  }}
+                  onChange={() => {
+                    if (allSelected) {
+                      onSelectAll?.([]);
+                    } else {
+                      onSelectAll?.(rows.map((r) => r.path));
+                    }
+                  }}
+                  style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  aria-label="Select all"
+                />
+              ),
+              size: 40,
+              cell: ({ row }: { row: { original: FlatTokenRow } }) => {
+                const isSelected = selectedPaths?.has(row.original.path) || false;
+                return (
+                  <div style={{ padding: '8px 12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSelection(row.original.path)}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                      aria-label={`Select ${row.original.path}`}
+                    />
+                  </div>
+                );
+              },
+            } as ColumnDef<FlatTokenRow>,
+          ]
+        : []),
       {
         accessorKey: 'path',
         header: 'Path',
@@ -126,7 +291,35 @@ export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps)
           const val = getValue() as string | number | boolean;
           const isDisabled = original.layer === 'core' && !coreModeEnabled;
 
+          // Check if this is a color token
+          const isColor = shouldUseColorPicker(original.type, val);
+
           if (isDisabled) {
+            // Show color swatch for disabled color tokens
+            if (isColor && typeof val === 'string') {
+              return (
+                <View padding="size-100">
+                  <Flex alignItems="center" gap="size-100">
+                    <div
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        backgroundColor: val,
+                        border: '1px solid var(--spectrum-global-color-gray-400)',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Text UNSAFE_style={{ fontSize: 13 }}>{String(val)}</Text>
+                  </Flex>
+                  {original.resolved && original.resolved !== val ? (
+                    <Text UNSAFE_style={{ fontSize: 11, color: 'var(--spectrum-global-color-gray-600)' }}>
+                      Resolved: {String(original.resolved)}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            }
             return (
               <View padding="size-100">
                 <Text UNSAFE_style={{ fontSize: 13 }}>{String(val)}</Text>
@@ -152,13 +345,27 @@ export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps)
             );
           }
 
+          // Use ColorCell for color tokens
+          if (isColor && typeof val === 'string') {
+            return (
+              <ColorCell
+                value={val}
+                isDisabled={isDisabled}
+                onCommit={(newVal) => handleValueUpdate(row.index, newVal)}
+                ariaLabel={`Color for ${original.path}`}
+              />
+            );
+          }
+
+          // Use ReferenceAutocomplete for string values (with autocomplete for {references})
           return (
             <View padding="size-100">
-              <EditableCell
+              <ReferenceAutocomplete
                 value={String(val)}
                 isDisabled={isDisabled}
                 onCommit={(newVal) => handleValueUpdate(row.index, newVal)}
                 ariaLabel={`Value for ${original.path}`}
+                availableTokens={rows}
               />
               {original.resolved && original.resolved !== val ? (
                 <Text UNSAFE_style={{ fontSize: 11, color: 'var(--spectrum-global-color-gray-600)' }}>
@@ -225,12 +432,50 @@ export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps)
           );
         },
       },
+      // Actions column (delete)
+      ...(onDelete
+        ? [
+            {
+              id: 'actions',
+              header: '',
+              size: 80,
+              cell: ({ row }: { row: { index: number; original: FlatTokenRow } }) => {
+                const original = row.original;
+                const isDisabled = original.layer === 'core' && !coreModeEnabled;
+
+                return (
+                  <View padding="size-100">
+                    <Flex gap="size-50">
+                      {onDuplicate && (
+                        <ActionButton
+                          isQuiet
+                          aria-label={`Duplicate ${original.path}`}
+                          isDisabled={isDisabled}
+                          onPress={() => onDuplicate(row.index)}
+                          UNSAFE_style={{ padding: 4, minWidth: 0 }}
+                        >
+                          <Copy size={14} />
+                        </ActionButton>
+                      )}
+                      <DeleteTokenDialog
+                        token={original}
+                        allTokens={rows}
+                        onDelete={() => onDelete(row.index)}
+                        isDisabled={isDisabled}
+                      />
+                    </Flex>
+                  </View>
+                );
+              },
+            } as ColumnDef<FlatTokenRow>,
+          ]
+        : []),
     ],
-    [coreModeEnabled, handleValueUpdate, handleTypeUpdate, handleDescriptionUpdate]
+    [coreModeEnabled, handleValueUpdate, handleTypeUpdate, handleDescriptionUpdate, rows, onDelete, onDuplicate, onToggleSelection, onSelectAll, selectedPaths, allSelected, someSelected, visibleRows]
   );
 
   const table = useReactTable({
-    data: rows,
+    data: visibleRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -250,14 +495,75 @@ export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps)
   return (
     <div
       ref={parentRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       style={{
         overflow: 'auto',
         backgroundColor: 'var(--spectrum-global-color-gray-50)',
         height: '100%',
         maxHeight: '100%',
         flex: 1,
+        outline: 'none',
       }}
     >
+      {/* Group headers bar */}
+      {onToggleGroupCollapse && groupNames.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            padding: '8px 12px',
+            backgroundColor: 'var(--spectrum-global-color-gray-100)',
+            borderBottom: '1px solid var(--spectrum-global-color-gray-300)',
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+          }}
+        >
+          {groupNames.map((group) => {
+            const isCollapsed = collapsedGroups?.has(group);
+            const count = groups.get(group)?.length ?? 0;
+            return (
+              <button
+                key={group}
+                onClick={() => onToggleGroupCollapse(group)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 8px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: isCollapsed
+                    ? 'var(--spectrum-global-color-gray-200)'
+                    : 'var(--spectrum-global-color-gray-75)',
+                  border: '1px solid var(--spectrum-global-color-gray-300)',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  opacity: isCollapsed ? 0.7 : 1,
+                }}
+              >
+                <span style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0)', transition: 'transform 0.15s' }}>
+                  ▼
+                </span>
+                {group}
+                <span
+                  style={{
+                    backgroundColor: 'var(--spectrum-global-color-gray-400)',
+                    color: 'white',
+                    padding: '1px 6px',
+                    borderRadius: 10,
+                    fontSize: 10,
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -287,12 +593,17 @@ export function TokenTable({ rows, onUpdate, coreModeEnabled }: TokenTableProps)
           )}
           {virtualRows.map((virtualRow) => {
             const row = tableRows[virtualRow.index];
+            const isFocused = focusedRowIndex === virtualRow.index;
             return (
               <tr
                 key={row.id}
+                data-row-index={virtualRow.index}
+                onClick={() => setFocusedRowIndex(virtualRow.index)}
                 style={{
                   height: ROW_HEIGHT,
                   borderBottom: '1px solid var(--spectrum-global-color-gray-200)',
+                  backgroundColor: isFocused ? 'var(--spectrum-global-color-blue-100)' : undefined,
+                  cursor: 'pointer',
                 }}
               >
                 {row.getVisibleCells().map((cell) => (

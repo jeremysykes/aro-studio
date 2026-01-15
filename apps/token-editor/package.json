@@ -17,12 +17,14 @@
     "@aro-studio/core": "workspace:*",
     "@aro-studio/ui": "workspace:*",
     "@monaco-editor/react": "^4.6.0",
+    "@spectrum-icons/workflow": "^4.2.26",
     "@tanstack/react-table": "^8.20.5",
     "@tanstack/react-virtual": "^3.13.18",
     "electron": "28.3.3",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "zundo": "^2.3.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

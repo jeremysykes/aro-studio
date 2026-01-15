@@ -4,11 +4,21 @@ import { Tabs, TabList, TabPanels, Item, View, Flex, Text } from '@adobe/react-s
 import { useAppStore } from '../store';
 import { FileText } from 'lucide-react';
 import { TokenTable } from './TokenTable';
+import { FilterBar } from './FilterBar';
 import { parseTokenDocument } from '@aro-studio/core';
 import type { TokenDocument, FlatTokenRow } from '@aro-studio/core';
 
 export function CoreViewer() {
-  const { selectedCore, selectedCoreFile, coreEntries, coreRowsByFile } = useAppStore();
+  const {
+    selectedCore,
+    selectedCoreFile,
+    coreEntries,
+    coreRowsByFile,
+    // Filter state
+    searchQuery,
+    filterType,
+    filterHasReference,
+  } = useAppStore();
   const [content, setContent] = useState<string>('');
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(600);
@@ -117,6 +127,37 @@ export function CoreViewer() {
     return flattenCore(tokenDoc);
   }, [tokenDoc, selectedCore, selectedCoreFile, coreEntries, coreRowsByFile]);
 
+  // Apply filters to rows
+  const filteredCoreRows = useMemo(() => {
+    let rows = coreRows;
+
+    // Search filter (path, value, description)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      rows = rows.filter(
+        (row) =>
+          row.path.toLowerCase().includes(query) ||
+          String(row.value).toLowerCase().includes(query) ||
+          (row.description && row.description.toLowerCase().includes(query))
+      );
+    }
+
+    // Type filter
+    if (filterType) {
+      rows = rows.filter((row) => row.type === filterType);
+    }
+
+    // Reference filter
+    if (filterHasReference !== null) {
+      rows = rows.filter((row) => {
+        const isReference = typeof row.value === 'string' && row.value.startsWith('{') && row.value.endsWith('}');
+        return filterHasReference ? isReference : !isReference;
+      });
+    }
+
+    return rows;
+  }, [coreRows, searchQuery, filterType, filterHasReference]);
+
   // Calculate editor height from container using ResizeObserver
   useEffect(() => {
     if (activeTab !== 'json') {
@@ -185,10 +226,21 @@ export function CoreViewer() {
         <TabPanels UNSAFE_style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Item key="table" textValue="Table">
             <View height="100%" UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <FilterBar showLayerFilter={false} totalCount={coreRows.length} filteredCount={filteredCoreRows.length} />
               {tokenDoc ? (
-                <View flex="1" minHeight={0} UNSAFE_style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <TokenTable rows={coreRows} onUpdate={() => {}} coreModeEnabled={false} />
-                </View>
+                filteredCoreRows.length > 0 ? (
+                  <View flex="1" minHeight={0} UNSAFE_style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <TokenTable rows={filteredCoreRows} onUpdate={() => {}} coreModeEnabled={false} />
+                  </View>
+                ) : coreRows.length > 0 ? (
+                  <Flex alignItems="center" justifyContent="center" height="100%">
+                    <Text>No tokens match your filters</Text>
+                  </Flex>
+                ) : (
+                  <Flex alignItems="center" justifyContent="center" height="100%">
+                    <Text>No tokens in this file</Text>
+                  </Flex>
+                )
               ) : (
                 <Flex alignItems="center" justifyContent="center" height="100%">
                   <Text>Unable to parse as token document</Text>

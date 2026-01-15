@@ -4,6 +4,10 @@ import { Tabs, TabList, TabPanels, Item, ActionButton, Flex, View, Text } from '
 import { useAppStore } from '../store';
 import { AlertCircle } from 'lucide-react';
 import { TokenTable } from './TokenTable';
+import { FilterBar } from './FilterBar';
+import { BulkActionBar } from './BulkActionBar';
+import { AddTokenDialog, useAddToken } from './AddTokenDialog';
+import { ExportPreview } from './ExportPreview';
 import type { FlatTokenRow, SourceMapEntry, TokenDocument, TokenValue } from '@aro-studio/core';
 
 export function TokenEditor() {
@@ -30,12 +34,24 @@ export function TokenEditor() {
     buRowsByName,
     setBuRowsByName,
     setCoreRowsByFile,
+    // Filter state
+    searchQuery,
+    filterType,
+    filterLayer,
+    filterHasReference,
+    // Selection state
+    selectedPaths,
+    toggleRowSelection,
+    selectAllRows,
+    // Grouping state
+    collapsedGroups,
+    toggleGroupCollapse,
   } = useAppStore();
 
   const [editorContent, setEditorContent] = useState(tokenContent || '');
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(600); // Default fallback
-  const [activeTab, setActiveTab] = useState<'table' | 'json'>('table'); // Default to table view
+  const [activeTab, setActiveTab] = useState<'table' | 'json' | 'export'>('table'); // Default to table view
 
   const setNestedValue = (obj: Record<string, unknown>, path: string[], value: unknown) => {
     let current: Record<string, unknown> = obj;
@@ -155,9 +171,59 @@ export function TokenEditor() {
     return buRowsByName[selectedBU || ''] ?? [];
   }, [buRowsByName, selectedBU]);
 
+  // Apply filters to rows
+  const filteredRows = useMemo(() => {
+    let rows = buRows;
+
+    // Search filter (path, value, description)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      rows = rows.filter(
+        (row) =>
+          row.path.toLowerCase().includes(query) ||
+          String(row.value).toLowerCase().includes(query) ||
+          (row.description && row.description.toLowerCase().includes(query))
+      );
+    }
+
+    // Type filter
+    if (filterType) {
+      rows = rows.filter((row) => row.type === filterType);
+    }
+
+    // Layer filter
+    if (filterLayer !== 'all') {
+      rows = rows.filter((row) => row.layer === filterLayer);
+    }
+
+    // Reference filter
+    if (filterHasReference !== null) {
+      rows = rows.filter((row) => {
+        const isReference = typeof row.value === 'string' && row.value.startsWith('{') && row.value.endsWith('}');
+        return filterHasReference ? isReference : !isReference;
+      });
+    }
+
+    return rows;
+  }, [buRows, searchQuery, filterType, filterLayer, filterHasReference]);
+
+  // Create index mapping from filtered rows back to original rows for updates
+  const filteredToOriginalIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    filteredRows.forEach((filteredRow, filteredIndex) => {
+      const originalIndex = buRows.findIndex((r) => r.path === filteredRow.path);
+      if (originalIndex !== -1) {
+        map.set(filteredIndex, originalIndex);
+      }
+    });
+    return map;
+  }, [filteredRows, buRows]);
+
   const handleRowUpdate = useCallback(
     (rowIndex: number, columnId: 'value' | 'type' | 'description', newValue: string | number | boolean) => {
-      const row = buRows[rowIndex];
+      // Map filtered index back to original index
+      const originalIndex = filteredToOriginalIndex.get(rowIndex) ?? rowIndex;
+      const row = buRows[originalIndex];
       if (!row) return;
 
       // Create updated row without full recomputation
@@ -171,7 +237,7 @@ export function TokenEditor() {
         // Update only the specific row in buRowsByName
         const currentBuRows = buRowsByName[selectedBU || ''] ?? [];
         const newBuRows = [...currentBuRows];
-        newBuRows[rowIndex] = updatedRow;
+        newBuRows[originalIndex] = updatedRow;
         setBuRowsByName({ ...buRowsByName, [selectedBU || '']: newBuRows });
 
         // Update buDoc
@@ -231,7 +297,107 @@ export function TokenEditor() {
       setCoreDirty(true);
       setIsDirty(true);
     },
-    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, sourceMaps, coreDocsByFile, setBuDoc, setCoreDirty, setIsDirty, setTokenContent, setBuRowsByName, setLoaderData]
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, sourceMaps, coreDocsByFile, setBuDoc, setCoreDirty, setIsDirty, setTokenContent, setBuRowsByName, setLoaderData, filteredToOriginalIndex]
+  );
+
+  // Delete row handler
+  const handleRowDelete = useCallback(
+    (rowIndex: number) => {
+      // Map filtered index back to original index
+      const originalIndex = filteredToOriginalIndex.get(rowIndex) ?? rowIndex;
+      const row = buRows[originalIndex];
+      if (!row) return;
+
+      // Only allow deleting BU tokens (not core tokens unless in core mode)
+      if (row.layer === 'core' && !coreModeEnabled) {
+        return;
+      }
+
+      if (row.layer === 'bu') {
+        // Remove from buRowsByName
+        const currentBuRows = buRowsByName[selectedBU || ''] ?? [];
+        const newBuRows = currentBuRows.filter((_, i) => i !== originalIndex);
+        setBuRowsByName({ ...buRowsByName, [selectedBU || '']: newBuRows });
+
+        // Remove from buDoc
+        const nextBuDoc = buDoc ? JSON.parse(JSON.stringify(buDoc)) : {};
+        const parts = row.path.split('.');
+        let current = nextBuDoc as Record<string, unknown>;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!current[parts[i]]) return;
+          current = current[parts[i]] as Record<string, unknown>;
+        }
+        delete current[parts[parts.length - 1]];
+
+        setBuDoc(nextBuDoc as TokenDocument);
+        setTokenContent(JSON.stringify(nextBuDoc, null, 2));
+        setIsDirty(true);
+      }
+    },
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, setBuRowsByName, setBuDoc, setTokenContent, setIsDirty, filteredToOriginalIndex]
+  );
+
+  // Duplicate row handler
+  const handleRowDuplicate = useCallback(
+    (rowIndex: number) => {
+      // Map filtered index back to original index
+      const originalIndex = filteredToOriginalIndex.get(rowIndex) ?? rowIndex;
+      const row = buRows[originalIndex];
+      if (!row) return;
+
+      // Only allow duplicating BU tokens (not core tokens unless in core mode)
+      if (row.layer === 'core' && !coreModeEnabled) {
+        return;
+      }
+
+      if (row.layer === 'bu') {
+        // Generate new path with -copy suffix
+        const parts = row.path.split('.');
+        const lastPart = parts[parts.length - 1];
+        parts[parts.length - 1] = `${lastPart}-copy`;
+        const newPath = parts.join('.');
+
+        // Check if path already exists
+        const currentBuRows = buRowsByName[selectedBU || ''] ?? [];
+        const existingPaths = new Set(currentBuRows.map((r) => r.path));
+        let uniquePath = newPath;
+        let counter = 1;
+        while (existingPaths.has(uniquePath)) {
+          parts[parts.length - 1] = `${lastPart}-copy-${counter}`;
+          uniquePath = parts.join('.');
+          counter++;
+        }
+
+        // Create duplicate row
+        const duplicateRow: FlatTokenRow = {
+          ...row,
+          path: uniquePath,
+        };
+
+        // Add to buRowsByName
+        const newBuRows = [...currentBuRows, duplicateRow];
+        setBuRowsByName({ ...buRowsByName, [selectedBU || '']: newBuRows });
+
+        // Add to buDoc
+        const nextBuDoc = buDoc ? JSON.parse(JSON.stringify(buDoc)) : {};
+        const pathParts = uniquePath.split('.');
+        const token: Record<string, unknown> = {
+          $value: row.value,
+        };
+        if (row.type) {
+          token.$type = row.type;
+        }
+        if (row.description) {
+          token.$description = row.description;
+        }
+        setNestedValue(nextBuDoc as Record<string, unknown>, pathParts, token);
+
+        setBuDoc(nextBuDoc as TokenDocument);
+        setTokenContent(JSON.stringify(nextBuDoc, null, 2));
+        setIsDirty(true);
+      }
+    },
+    [buRows, buRowsByName, selectedBU, buDoc, coreModeEnabled, setBuRowsByName, setBuDoc, setTokenContent, setIsDirty, filteredToOriginalIndex]
   );
 
   // Load token content when BU is selected
@@ -389,6 +555,9 @@ export function TokenEditor() {
     }
   };
 
+  // Add token dialog
+  const { existingPaths, handleAddToken } = useAddToken();
+
   if (!selectedBU) {
     return null;
   }
@@ -424,6 +593,7 @@ export function TokenEditor() {
             )}
           </Flex>
           <Flex alignItems="center" gap="size-150">
+            <AddTokenDialog existingPaths={existingPaths} onAdd={handleAddToken} />
             {hasErrors && (
               <Flex alignItems="center" gap="size-100" UNSAFE_style={{ color: 'var(--spectrum-semantic-negative-color-default)' }}>
                 <AlertCircle size={16} />
@@ -446,7 +616,7 @@ export function TokenEditor() {
       <Tabs
         aria-label="Token editor views"
         selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(key as 'table' | 'json')}
+        onSelectionChange={(key) => setActiveTab(key as 'table' | 'json' | 'export')}
         height="100%"
         UNSAFE_style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
@@ -456,6 +626,9 @@ export function TokenEditor() {
           </Item>
           <Item key="json" textValue="JSON">
             JSON
+          </Item>
+          <Item key="export" textValue="Export">
+            Export
           </Item>
         </TabList>
         <TabPanels UNSAFE_style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -471,10 +644,27 @@ export function TokenEditor() {
                   </Flex>
                 </View>
               )}
-              {buRows.length > 0 ? (
+              <FilterBar totalCount={buRows.length} filteredCount={filteredRows.length} />
+              <BulkActionBar selectedCount={selectedPaths.size} />
+              {filteredRows.length > 0 ? (
                 <View flex="1" minHeight={0} UNSAFE_style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <TokenTable rows={buRows} onUpdate={handleRowUpdate} coreModeEnabled={coreModeEnabled} />
+                  <TokenTable
+                    rows={filteredRows}
+                    onUpdate={handleRowUpdate}
+                    onDelete={handleRowDelete}
+                    onDuplicate={handleRowDuplicate}
+                    coreModeEnabled={coreModeEnabled}
+                    selectedPaths={selectedPaths}
+                    onToggleSelection={toggleRowSelection}
+                    onSelectAll={selectAllRows}
+                    collapsedGroups={collapsedGroups}
+                    onToggleGroupCollapse={toggleGroupCollapse}
+                  />
                 </View>
+              ) : buRows.length > 0 ? (
+                <Flex alignItems="center" justifyContent="center" height="100%">
+                  <Text>No tokens match your filters</Text>
+                </Flex>
               ) : (
                 <Flex alignItems="center" justifyContent="center" height="100%">
                   <Text>No tokens loaded</Text>
@@ -503,6 +693,9 @@ export function TokenEditor() {
                 />
               </div>
             </View>
+          </Item>
+          <Item key="export" textValue="Export">
+            <ExportPreview rows={buRows} />
           </Item>
         </TabPanels>
       </Tabs>
