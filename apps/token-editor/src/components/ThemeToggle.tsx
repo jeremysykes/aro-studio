@@ -1,4 +1,4 @@
-import { ToggleButton, Text } from '@adobe/react-spectrum';
+import { ToggleButton } from '@adobe/react-spectrum';
 import { Moon, Sun } from 'lucide-react';
 
 type ColorScheme = 'light' | 'dark';
@@ -18,7 +18,6 @@ export function ThemeToggle({ colorScheme, onChange }: ThemeToggleProps) {
       onChange={(selected) => onChange(selected ? 'dark' : 'light')}
     >
       {isDark ? <Moon size={14} /> : <Sun size={14} />}
-      <Text>{isDark ? 'Dark' : 'Light'}</Text>
     </ToggleButton>
   );
 }
