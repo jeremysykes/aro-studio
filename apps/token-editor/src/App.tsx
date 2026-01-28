@@ -145,10 +145,7 @@ function App() {
       prefix: string[] = [],
       acc: Set<string>
     ): Set<string> => {
-      const keys = new Set<string>([
-        ...Object.keys(prevDoc || {}),
-        ...Object.keys(nextDoc || {}),
-      ]);
+      const keys = new Set<string>([...Object.keys(prevDoc || {}), ...Object.keys(nextDoc || {})]);
       keys.forEach((key) => {
         if (key === '$schema') return;
         const pathArr = [...prefix, key];
@@ -164,7 +161,12 @@ function App() {
           const nextType = nextLeaf ? (nextVal as any).$type : undefined;
           const prevDesc = prevLeaf ? (prevVal as any).$description : undefined;
           const nextDesc = nextLeaf ? (nextVal as any).$description : undefined;
-          if (prevValue !== nextValue || prevType !== nextType || prevDesc !== nextDesc || prevLeaf !== nextLeaf) {
+          if (
+            prevValue !== nextValue ||
+            prevType !== nextType ||
+            prevDesc !== nextDesc ||
+            prevLeaf !== nextLeaf
+          ) {
             acc.add(pathArr.join('.'));
           }
         } else if (bothObjects) {
@@ -182,10 +184,7 @@ function App() {
       prefix: string[] = [],
       acc: DiffEntry[]
     ): DiffEntry[] => {
-      const keys = new Set<string>([
-        ...Object.keys(prevDoc || {}),
-        ...Object.keys(nextDoc || {}),
-      ]);
+      const keys = new Set<string>([...Object.keys(prevDoc || {}), ...Object.keys(nextDoc || {})]);
       keys.forEach((key) => {
         if (key === '$schema') return;
         const pathArr = [...prefix, key];
@@ -201,7 +200,12 @@ function App() {
           const nextType = nextLeaf ? (nextVal as any).$type : undefined;
           const prevDesc = prevLeaf ? (prevVal as any).$description : undefined;
           const nextDesc = nextLeaf ? (nextVal as any).$description : undefined;
-          if (prevValue !== nextValue || prevType !== nextType || prevDesc !== nextDesc || prevLeaf !== nextLeaf) {
+          if (
+            prevValue !== nextValue ||
+            prevType !== nextType ||
+            prevDesc !== nextDesc ||
+            prevLeaf !== nextLeaf
+          ) {
             acc.push({
               path: pathArr.join('.'),
               before: truncateDiffValue(formatDiffValue(prevVal)),
@@ -453,9 +457,7 @@ function App() {
   }, [reset]);
 
   const hasFolder = Boolean(tokenRoot);
-  const helperMessage = hasFolder
-    ? 'Folder loaded'
-    : 'Select a folder containing a tokens/ directory to get started';
+  const helperMessage = hasFolder ? 'Folder loaded' : 'Select a tokens/ directory to get started';
 
   return (
     <Provider theme={defaultTheme} colorScheme={colorScheme} height="100vh" width="100vw">
@@ -472,11 +474,7 @@ function App() {
               {!hasFolder ? (
                 <FolderPicker />
               ) : (
-                <ActionButton
-                  onPress={handleClearCache}
-                  isQuiet
-                  aria-label="Clear saved folder"
-                >
+                <ActionButton onPress={handleClearCache} isQuiet aria-label="Clear saved folder">
                   <XCircle size={14} />
                 </ActionButton>
               )}
@@ -501,7 +499,11 @@ function App() {
                 <Redo2 size={14} />
               </ActionButton>
               <Divider orientation="vertical" size="S" />
-              <ActionButton onPress={handleSave} isDisabled={!canSave} aria-label={canSave ? 'Save (Cmd+S)' : 'No changes to save'}>
+              <ActionButton
+                onPress={handleSave}
+                isDisabled={!canSave}
+                aria-label={canSave ? 'Save (Cmd+S)' : 'No changes to save'}
+              >
                 <Save size={14} />
               </ActionButton>
               <Divider orientation="vertical" size="S" />
@@ -520,7 +522,9 @@ function App() {
               overflow="auto"
             >
               <View padding="size-200">
-                <Text UNSAFE_style={{ fontSize: 12, color: 'var(--spectrum-global-color-gray-700)' }}>
+                <Text
+                  UNSAFE_style={{ fontSize: 12, color: 'var(--spectrum-global-color-gray-700)' }}
+                >
                   Select a business unit or core file to view
                 </Text>
               </View>
@@ -534,7 +538,12 @@ function App() {
                 <View flex="1" minHeight={0}>
                   <TokenEditor />
                 </View>
-                <View width="size-3600" borderStartWidth="thin" borderColor="gray-300" overflow="auto">
+                <View
+                  width="size-3600"
+                  borderStartWidth="thin"
+                  borderColor="gray-300"
+                  overflow="auto"
+                >
                   <ValidationPanel />
                 </View>
               </Flex>
@@ -554,7 +563,13 @@ function App() {
               </Text>
             ) : null
           }
-          right={tokenRoot ? <Text UNSAFE_style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Token Root: {tokenRoot}</Text> : null}
+          right={
+            tokenRoot ? (
+              <Text UNSAFE_style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Token Root: {tokenRoot}
+              </Text>
+            ) : null
+          }
         />
 
         {isSaveDialogOpen && (
@@ -568,7 +583,10 @@ function App() {
               justifyContent: 'center',
               zIndex: 1000,
             }}
-            onClick={() => { setIsSaveDialogOpen(false); setDiffData(null); }}
+            onClick={() => {
+              setIsSaveDialogOpen(false);
+              setDiffData(null);
+            }}
           >
             <div
               style={{
@@ -586,12 +604,22 @@ function App() {
               </Heading>
               {diffData && diffData.coreChangedPaths.length > 0 ? (
                 <View marginBottom="size-200">
-                  <Text UNSAFE_style={{ fontWeight: 600 }}>Core changes ({diffData.coreChangedPaths.length})</Text>
+                  <Text UNSAFE_style={{ fontWeight: 600 }}>
+                    Core changes ({diffData.coreChangedPaths.length})
+                  </Text>
                   <Text UNSAFE_style={{ display: 'block', fontSize: 12 }}>
                     {diffData.coreChangedPaths.slice(0, 8).join(', ')}
-                    {diffData.coreChangedPaths.length > 8 ? `, +${diffData.coreChangedPaths.length - 8} more` : ''}
+                    {diffData.coreChangedPaths.length > 8
+                      ? `, +${diffData.coreChangedPaths.length - 8} more`
+                      : ''}
                   </Text>
-                  <Text UNSAFE_style={{ display: 'block', fontSize: 12, color: 'var(--spectrum-semantic-caution-color-default)' }}>
+                  <Text
+                    UNSAFE_style={{
+                      display: 'block',
+                      fontSize: 12,
+                      color: 'var(--spectrum-semantic-caution-color-default)',
+                    }}
+                  >
                     Approx impacted references: {diffData.impactedRefs}
                   </Text>
                   <Text UNSAFE_style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
@@ -599,14 +627,28 @@ function App() {
                   </Text>
                   {diffData.coreDiffs.length > 0 && (
                     <View marginTop="size-150">
-                      <Text UNSAFE_style={{ fontWeight: 600, fontSize: 12 }}>Core diff preview</Text>
+                      <Text UNSAFE_style={{ fontWeight: 600, fontSize: 12 }}>
+                        Core diff preview
+                      </Text>
                       {diffData.coreDiffs.slice(0, diffPreviewLimit).map((diff, index) => (
                         <View key={`${diff.path}-${index}`} marginTop="size-100">
                           <Text UNSAFE_style={{ fontSize: 12 }}>{diff.path}</Text>
-                          <Text UNSAFE_style={{ fontSize: 11, fontFamily: 'monospace', display: 'block' }}>
+                          <Text
+                            UNSAFE_style={{
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              display: 'block',
+                            }}
+                          >
                             before: {diff.before}
                           </Text>
-                          <Text UNSAFE_style={{ fontSize: 11, fontFamily: 'monospace', display: 'block' }}>
+                          <Text
+                            UNSAFE_style={{
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              display: 'block',
+                            }}
+                          >
                             after: {diff.after}
                           </Text>
                         </View>
@@ -624,10 +666,14 @@ function App() {
               )}
               {diffData && diffData.buChangedPaths.length > 0 ? (
                 <View marginBottom="size-200">
-                  <Text UNSAFE_style={{ fontWeight: 600 }}>BU changes ({diffData.buChangedPaths.length})</Text>
+                  <Text UNSAFE_style={{ fontWeight: 600 }}>
+                    BU changes ({diffData.buChangedPaths.length})
+                  </Text>
                   <Text UNSAFE_style={{ display: 'block', fontSize: 12 }}>
                     {diffData.buChangedPaths.slice(0, 8).join(', ')}
-                    {diffData.buChangedPaths.length > 8 ? `, +${diffData.buChangedPaths.length - 8} more` : ''}
+                    {diffData.buChangedPaths.length > 8
+                      ? `, +${diffData.buChangedPaths.length - 8} more`
+                      : ''}
                   </Text>
                   {diffData.buDiffs.length > 0 && (
                     <View marginTop="size-150">
@@ -635,10 +681,22 @@ function App() {
                       {diffData.buDiffs.slice(0, diffPreviewLimit).map((diff, index) => (
                         <View key={`${diff.path}-${index}`} marginTop="size-100">
                           <Text UNSAFE_style={{ fontSize: 12 }}>{diff.path}</Text>
-                          <Text UNSAFE_style={{ fontSize: 11, fontFamily: 'monospace', display: 'block' }}>
+                          <Text
+                            UNSAFE_style={{
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              display: 'block',
+                            }}
+                          >
                             before: {diff.before}
                           </Text>
-                          <Text UNSAFE_style={{ fontSize: 11, fontFamily: 'monospace', display: 'block' }}>
+                          <Text
+                            UNSAFE_style={{
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              display: 'block',
+                            }}
+                          >
                             after: {diff.after}
                           </Text>
                         </View>
@@ -668,17 +726,36 @@ function App() {
                 </label>
               </Flex>
               {versionMissingForCore && (
-                <Text UNSAFE_style={{ fontSize: 12, color: 'var(--spectrum-semantic-negative-color-default)', marginBottom: 8 }}>
-                  Core edits require a valid BU version (x.y.z). Please fix `version.json` to continue.
+                <Text
+                  UNSAFE_style={{
+                    fontSize: 12,
+                    color: 'var(--spectrum-semantic-negative-color-default)',
+                    marginBottom: 8,
+                  }}
+                >
+                  Core edits require a valid BU version (x.y.z). Please fix `version.json` to
+                  continue.
                 </Text>
               )}
               {shouldBlockSaveForVersion && !versionMissingForCore && (
-                <Text UNSAFE_style={{ fontSize: 12, color: 'var(--spectrum-semantic-caution-color-default)', marginBottom: 8 }}>
+                <Text
+                  UNSAFE_style={{
+                    fontSize: 12,
+                    color: 'var(--spectrum-semantic-caution-color-default)',
+                    marginBottom: 8,
+                  }}
+                >
                   Core edits require a BU version bump. Enable the checkbox to continue.
                 </Text>
               )}
               <Flex justifyContent="end" gap="size-150" marginTop="size-200">
-                <ActionButton onPress={() => { setIsSaveDialogOpen(false); setDiffData(null); }} isQuiet>
+                <ActionButton
+                  onPress={() => {
+                    setIsSaveDialogOpen(false);
+                    setDiffData(null);
+                  }}
+                  isQuiet
+                >
                   Cancel
                 </ActionButton>
                 <ActionButton onPress={() => void performSave()} isDisabled={!canConfirmSave}>
