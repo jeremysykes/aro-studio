@@ -5,7 +5,7 @@
   "description": "Aro Studio is a professional toolkit for creating and managing multi-brand design systems.",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter token-editor run dev",
+    "dev": "pnpm --filter @aro-studio/core run build && pnpm --filter token-editor run dev",
     "lint": "pnpm --filter \"*\" run lint",
     "typecheck": "pnpm exec tsc -b --noEmit",
     "build": "pnpm --filter \"*\" run build",
