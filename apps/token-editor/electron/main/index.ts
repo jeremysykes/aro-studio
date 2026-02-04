@@ -9,6 +9,7 @@ import {
   discoverTokenRoot,
   discoverBusinessUnits,
   discoverCore,
+  loadBuDisplayNames,
   readJson,
   writeJson,
   loadTokens,
@@ -96,7 +97,7 @@ function createWindow() {
 
   // In dev, load from Vite dev server
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5174');
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(join(__dirname, '../../dist/index.html'));
@@ -141,7 +142,16 @@ ipcMain.handle('discover-token-root', async (_event, selectedFolder: string) => 
 ipcMain.handle('discover-business-units', async (_event, tokensDir: string) => {
   try {
     const bus = await discoverBusinessUnits(tokensDir, fsAdapter);
-    return { data: bus };
+    const displayNames = await loadBuDisplayNames(tokensDir, fsAdapter);
+    const enriched = bus.map((bu) => ({
+      ...bu,
+      displayName: displayNames[bu.name] ?? bu.name,
+    }));
+    console.log(
+      '[discover-business-units] enriched:',
+      JSON.stringify(enriched, null, 2),
+    );
+    return { data: enriched };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Unknown error occurred',
