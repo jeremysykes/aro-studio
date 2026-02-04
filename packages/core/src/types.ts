@@ -40,6 +40,7 @@ export interface FlatTokenRow {
 export interface BU {
   name: string;
   path: string;
+  displayName?: string;
 }
 
 /**

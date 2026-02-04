@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./electron-entry.cjs",
   "scripts": {
-    "dev": "pnpm exec tsc -p tsconfig.preload.json && mv dist-electron/preload/index.js dist-electron/preload/index.cjs && concurrently -k \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
+    "dev": "pnpm exec tsc -p tsconfig.preload.json && mv dist-electron/preload/index.js dist-electron/preload/index.cjs && concurrently -k \"vite\" \"wait-on http://localhost:5174 && NODE_ENV=development electron .\"",
     "electron": "electron .",
     "build": "tsc && vite build && tsc -p tsconfig.electron.json",
     "preview": "vite preview",

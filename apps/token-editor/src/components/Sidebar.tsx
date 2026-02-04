@@ -47,8 +47,8 @@ export function Sidebar() {
         {businessUnits.length > 0 ? (
           <Section title="Business units">
             {businessUnits.map((bu) => (
-              <Item key={bu.name} textValue={bu.name}>
-                <Text>{bu.name}</Text>
+              <Item key={bu.name} textValue={bu.displayName ?? bu.name}>
+                <Text>{bu.displayName ?? bu.name}</Text>
               </Item>
             ))}
           </Section>

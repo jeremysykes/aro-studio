@@ -98,3 +98,33 @@ export async function discoverCore(
   return coreEntries.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Load display names for business units from tokens/bu-display-names.json
+ * Maps folder name -> display string for UI
+ */
+export async function loadBuDisplayNames(
+  tokensDir: string,
+  fs: FileSystemAdapter
+): Promise<Record<string, string>> {
+  const path = fs.join(tokensDir, 'bu-display-names.json');
+  if (!(await fs.exists(path))) {
+    return {};
+  }
+  try {
+    const content = await fs.readFile(path);
+    const data = JSON.parse(content);
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const result: Record<string, string> = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof key === 'string' && typeof value === 'string') {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
+  } catch {
+    // Ignore parse/read errors, return empty
+  }
+  return {};
+}
+
